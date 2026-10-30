@@ -1,0 +1,66 @@
+[
+  {
+    "rule_id": "RUL-01",
+    "rule_name": "Safety Hazard Automatic Critical",
+    "condition_expression": "is_safety_issue == True OR category == 'Product Safety & Hazard'",
+    "target_priority": "P1_CRITICAL",
+    "target_response_hours": 1,
+    "target_resolution_hours": 4
+  },
+  {
+    "rule_id": "RUL-02",
+    "rule_name": "Vulnerable Customer Negative Sentiment",
+    "condition_expression": "is_vulnerable == True AND sentiment_score < -0.40",
+    "target_priority": "P1_CRITICAL",
+    "target_response_hours": 1,
+    "target_resolution_hours": 4
+  },
+  {
+    "rule_id": "RUL-03",
+    "rule_name": "Vulnerable Customer Standard Escalation",
+    "condition_expression": "is_vulnerable == True",
+    "target_priority": "P2_HIGH",
+    "target_response_hours": 4,
+    "target_resolution_hours": 24
+  },
+  {
+    "rule_id": "RUL-04",
+    "rule_name": "High Value Recurring Order Complaint",
+    "condition_expression": "order_amount >= 1000.00 AND is_repeat_complaint == True",
+    "target_priority": "P2_HIGH",
+    "target_response_hours": 4,
+    "target_resolution_hours": 24
+  },
+  {
+    "rule_id": "RUL-05",
+    "rule_name": "Severe Frustration Negative Sentiment",
+    "condition_expression": "sentiment_score <= -0.70",
+    "target_priority": "P2_HIGH",
+    "target_response_hours": 4,
+    "target_resolution_hours": 24
+  },
+  {
+    "rule_id": "RUL-06",
+    "rule_name": "High Value Standard or Repeat Complaint",
+    "condition_expression": "order_amount >= 500.00 OR is_repeat_complaint == True",
+    "target_priority": "P3_MEDIUM",
+    "target_response_hours": 12,
+    "target_resolution_hours": 48
+  },
+  {
+    "rule_id": "RUL-07",
+    "rule_name": "Default High Severity",
+    "condition_expression": "severity == 'HIGH'",
+    "target_priority": "P2_HIGH",
+    "target_response_hours": 4,
+    "target_resolution_hours": 24
+  },
+  {
+    "rule_id": "RUL-08",
+    "rule_name": "Standard Low Priority Baseline",
+    "condition_expression": "DEFAULT",
+    "target_priority": "P4_LOW",
+    "target_response_hours": 24,
+    "target_resolution_hours": 96
+  }
+]

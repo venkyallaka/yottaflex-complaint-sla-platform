@@ -1,0 +1,72 @@
+[
+  {
+    "category_id": "CAT-01",
+    "category_name": "Product Safety & Hazard",
+    "default_severity": "CRITICAL",
+    "assigned_team": "Safety & Regulatory Escalations",
+    "is_safety_critical": true
+  },
+  {
+    "category_id": "CAT-02",
+    "category_name": "Defective / Damaged Item",
+    "default_severity": "HIGH",
+    "assigned_team": "Product Quality Team",
+    "is_safety_critical": false
+  },
+  {
+    "category_id": "CAT-03",
+    "category_name": "Late or Missing Delivery",
+    "default_severity": "MEDIUM",
+    "assigned_team": "Logistics & Fulfillment",
+    "is_safety_critical": false
+  },
+  {
+    "category_id": "CAT-04",
+    "category_name": "Billing & Overcharge",
+    "default_severity": "HIGH",
+    "assigned_team": "Finance & Billing Ops",
+    "is_safety_critical": false
+  },
+  {
+    "category_id": "CAT-05",
+    "category_name": "Refund & Return Processing",
+    "default_severity": "MEDIUM",
+    "assigned_team": "Returns & Settlement",
+    "is_safety_critical": false
+  },
+  {
+    "category_id": "CAT-06",
+    "category_name": "Account Access & Security",
+    "default_severity": "HIGH",
+    "assigned_team": "Security & Identity",
+    "is_safety_critical": false
+  },
+  {
+    "category_id": "CAT-07",
+    "category_name": "Poor Customer Service",
+    "default_severity": "MEDIUM",
+    "assigned_team": "Service Excellence Team",
+    "is_safety_critical": false
+  },
+  {
+    "category_id": "CAT-08",
+    "category_name": "Missing Parts / Accessories",
+    "default_severity": "LOW",
+    "assigned_team": "Inventory & Parts Ops",
+    "is_safety_critical": false
+  },
+  {
+    "category_id": "CAT-09",
+    "category_name": "Misleading Description",
+    "default_severity": "LOW",
+    "assigned_team": "Catalog & Compliance",
+    "is_safety_critical": false
+  },
+  {
+    "category_id": "CAT-10",
+    "category_name": "Technical & Software Glitch",
+    "default_severity": "MEDIUM",
+    "assigned_team": "Technical Support Tier 2",
+    "is_safety_critical": false
+  }
+]

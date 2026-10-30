@@ -1,0 +1,11 @@
+category_id,category_name,default_severity,assigned_team,is_safety_critical
+CAT-01,Product Safety & Hazard,CRITICAL,Safety & Regulatory Escalations,True
+CAT-02,Defective / Damaged Item,HIGH,Product Quality Team,False
+CAT-03,Late or Missing Delivery,MEDIUM,Logistics & Fulfillment,False
+CAT-04,Billing & Overcharge,HIGH,Finance & Billing Ops,False
+CAT-05,Refund & Return Processing,MEDIUM,Returns & Settlement,False
+CAT-06,Account Access & Security,HIGH,Security & Identity,False
+CAT-07,Poor Customer Service,MEDIUM,Service Excellence Team,False
+CAT-08,Missing Parts / Accessories,LOW,Inventory & Parts Ops,False
+CAT-09,Misleading Description,LOW,Catalog & Compliance,False
+CAT-10,Technical & Software Glitch,MEDIUM,Technical Support Tier 2,False

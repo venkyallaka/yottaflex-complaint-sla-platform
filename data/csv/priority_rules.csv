@@ -1,0 +1,9 @@
+rule_id,rule_name,condition_expression,target_priority,target_response_hours,target_resolution_hours
+RUL-01,Safety Hazard Automatic Critical,is_safety_issue == True OR category == 'Product Safety & Hazard',P1_CRITICAL,1,4
+RUL-02,Vulnerable Customer Negative Sentiment,is_vulnerable == True AND sentiment_score < -0.40,P1_CRITICAL,1,4
+RUL-03,Vulnerable Customer Standard Escalation,is_vulnerable == True,P2_HIGH,4,24
+RUL-04,High Value Recurring Order Complaint,order_amount >= 1000.00 AND is_repeat_complaint == True,P2_HIGH,4,24
+RUL-05,Severe Frustration Negative Sentiment,sentiment_score <= -0.70,P2_HIGH,4,24
+RUL-06,High Value Standard or Repeat Complaint,order_amount >= 500.00 OR is_repeat_complaint == True,P3_MEDIUM,12,48
+RUL-07,Default High Severity,severity == 'HIGH',P2_HIGH,4,24
+RUL-08,Standard Low Priority Baseline,DEFAULT,P4_LOW,24,96

@@ -1,0 +1,51 @@
+product_id,product_name,category_id,base_price,has_safety_hazard,warranty_months
+PRD-0001,Smart 4K Ultra TV 55-inch,CAT-02,549.99,False,24
+PRD-0002,Ergonomic Mesh Office Chair,CAT-02,189.5,False,12
+PRD-0003,Lithium Ion Power Drill 20V,CAT-01,129.99,True,36
+PRD-0004,Active Noise Cancelling Headphones,CAT-02,219.0,False,12
+PRD-0005,Stainless Steel Multi-Cooker,CAT-01,99.95,True,24
+PRD-0006,Mechanical Gaming Keyboard,CAT-08,85.0,False,12
+PRD-0007,Wireless Fast Charging Pad,CAT-02,29.99,False,12
+PRD-0008,High-Pressure Espresso Machine,CAT-01,450.0,True,24
+PRD-0009,Cordless Stick Vacuum Cleaner,CAT-01,279.99,True,24
+PRD-0010,Smart Security Camera 1080p,CAT-06,69.99,False,12
+PRD-0011,Portable Bluetooth Speaker,CAT-02,49.99,False,12
+PRD-0012,Organic Cotton Bedding Sheet Set,CAT-09,75.0,False,6
+PRD-0013,Professional Blender 1200W,CAT-01,149.99,True,24
+PRD-0014,Compact Dehumidifier 30 Pint,CAT-02,189.99,False,12
+PRD-0015,Digital Smart Door Lock,CAT-06,199.99,False,24
+PRD-0016,USB-C Dual Display Docking Station,CAT-10,119.5,False,12
+PRD-0017,True Wireless Fitness Earbuds,CAT-02,79.99,False,12
+PRD-0018,Electric Standing Desk 55x28,CAT-02,349.0,False,36
+PRD-0019,Smart Wi-Fi Thermostat,CAT-10,139.0,False,24
+PRD-0020,Ceramic Nonstick Cookware Set,CAT-02,159.99,False,12
+PRD-0021,Portable Power Bank 20000mAh,CAT-01,39.99,True,12
+PRD-0022,Air Purifier HEPA H13,CAT-02,119.0,False,24
+PRD-0023,Dual Dash Cam 4K Front & Rear,CAT-10,169.99,False,12
+PRD-0024,Memory Foam Queen Mattress,CAT-02,699.0,False,60
+PRD-0025,Waterproof Smart Fitness Tracker,CAT-02,59.99,False,12
+PRD-0026,Smart 4K Ultra TV 55-inch (Pro Model v26),CAT-02,687.49,False,24
+PRD-0027,Ergonomic Mesh Office Chair (Pro Model v27),CAT-02,236.88,False,12
+PRD-0028,Lithium Ion Power Drill 20V (Pro Model v28),CAT-01,123.49,True,36
+PRD-0029,Active Noise Cancelling Headphones (Pro Model v29),CAT-02,273.75,False,12
+PRD-0030,Stainless Steel Multi-Cooker (Pro Model v30),CAT-01,84.96,True,24
+PRD-0031,Mechanical Gaming Keyboard (Pro Model v31),CAT-08,106.25,False,12
+PRD-0032,Wireless Fast Charging Pad (Pro Model v32),CAT-02,44.98,False,12
+PRD-0033,High-Pressure Espresso Machine (Pro Model v33),CAT-01,562.5,True,24
+PRD-0034,Cordless Stick Vacuum Cleaner (Pro Model v34),CAT-01,265.99,True,24
+PRD-0035,Smart Security Camera 1080p (Pro Model v35),CAT-06,76.99,False,12
+PRD-0036,Portable Bluetooth Speaker (Pro Model v36),CAT-02,42.49,False,12
+PRD-0037,Organic Cotton Bedding Sheet Set (Pro Model v37),CAT-09,71.25,False,6
+PRD-0038,Professional Blender 1200W (Pro Model v38),CAT-01,187.49,True,24
+PRD-0039,Compact Dehumidifier 30 Pint (Pro Model v39),CAT-02,180.49,False,12
+PRD-0040,Digital Smart Door Lock (Pro Model v40),CAT-06,169.99,False,24
+PRD-0041,USB-C Dual Display Docking Station (Pro Model v41),CAT-10,149.38,False,12
+PRD-0042,True Wireless Fitness Earbuds (Pro Model v42),CAT-02,119.98,False,12
+PRD-0043,Electric Standing Desk 55x28 (Pro Model v43),CAT-02,383.9,False,36
+PRD-0044,Smart Wi-Fi Thermostat (Pro Model v44),CAT-10,118.15,False,24
+PRD-0045,Ceramic Nonstick Cookware Set (Pro Model v45),CAT-02,175.99,False,12
+PRD-0046,Portable Power Bank 20000mAh (Pro Model v46),CAT-01,37.99,True,12
+PRD-0047,Air Purifier HEPA H13 (Pro Model v47),CAT-02,178.5,False,24
+PRD-0048,Dual Dash Cam 4K Front & Rear (Pro Model v48),CAT-10,212.49,False,12
+PRD-0049,Memory Foam Queen Mattress (Pro Model v49),CAT-02,1048.5,False,60
+PRD-0050,Waterproof Smart Fitness Tracker (Pro Model v50),CAT-02,74.99,False,12

@@ -1,0 +1,402 @@
+[
+  {
+    "product_id": "PRD-0001",
+    "product_name": "Smart 4K Ultra TV 55-inch",
+    "category_id": "CAT-02",
+    "base_price": 549.99,
+    "has_safety_hazard": false,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0002",
+    "product_name": "Ergonomic Mesh Office Chair",
+    "category_id": "CAT-02",
+    "base_price": 189.5,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0003",
+    "product_name": "Lithium Ion Power Drill 20V",
+    "category_id": "CAT-01",
+    "base_price": 129.99,
+    "has_safety_hazard": true,
+    "warranty_months": 36
+  },
+  {
+    "product_id": "PRD-0004",
+    "product_name": "Active Noise Cancelling Headphones",
+    "category_id": "CAT-02",
+    "base_price": 219.0,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0005",
+    "product_name": "Stainless Steel Multi-Cooker",
+    "category_id": "CAT-01",
+    "base_price": 99.95,
+    "has_safety_hazard": true,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0006",
+    "product_name": "Mechanical Gaming Keyboard",
+    "category_id": "CAT-08",
+    "base_price": 85.0,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0007",
+    "product_name": "Wireless Fast Charging Pad",
+    "category_id": "CAT-02",
+    "base_price": 29.99,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0008",
+    "product_name": "High-Pressure Espresso Machine",
+    "category_id": "CAT-01",
+    "base_price": 450.0,
+    "has_safety_hazard": true,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0009",
+    "product_name": "Cordless Stick Vacuum Cleaner",
+    "category_id": "CAT-01",
+    "base_price": 279.99,
+    "has_safety_hazard": true,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0010",
+    "product_name": "Smart Security Camera 1080p",
+    "category_id": "CAT-06",
+    "base_price": 69.99,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0011",
+    "product_name": "Portable Bluetooth Speaker",
+    "category_id": "CAT-02",
+    "base_price": 49.99,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0012",
+    "product_name": "Organic Cotton Bedding Sheet Set",
+    "category_id": "CAT-09",
+    "base_price": 75.0,
+    "has_safety_hazard": false,
+    "warranty_months": 6
+  },
+  {
+    "product_id": "PRD-0013",
+    "product_name": "Professional Blender 1200W",
+    "category_id": "CAT-01",
+    "base_price": 149.99,
+    "has_safety_hazard": true,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0014",
+    "product_name": "Compact Dehumidifier 30 Pint",
+    "category_id": "CAT-02",
+    "base_price": 189.99,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0015",
+    "product_name": "Digital Smart Door Lock",
+    "category_id": "CAT-06",
+    "base_price": 199.99,
+    "has_safety_hazard": false,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0016",
+    "product_name": "USB-C Dual Display Docking Station",
+    "category_id": "CAT-10",
+    "base_price": 119.5,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0017",
+    "product_name": "True Wireless Fitness Earbuds",
+    "category_id": "CAT-02",
+    "base_price": 79.99,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0018",
+    "product_name": "Electric Standing Desk 55x28",
+    "category_id": "CAT-02",
+    "base_price": 349.0,
+    "has_safety_hazard": false,
+    "warranty_months": 36
+  },
+  {
+    "product_id": "PRD-0019",
+    "product_name": "Smart Wi-Fi Thermostat",
+    "category_id": "CAT-10",
+    "base_price": 139.0,
+    "has_safety_hazard": false,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0020",
+    "product_name": "Ceramic Nonstick Cookware Set",
+    "category_id": "CAT-02",
+    "base_price": 159.99,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0021",
+    "product_name": "Portable Power Bank 20000mAh",
+    "category_id": "CAT-01",
+    "base_price": 39.99,
+    "has_safety_hazard": true,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0022",
+    "product_name": "Air Purifier HEPA H13",
+    "category_id": "CAT-02",
+    "base_price": 119.0,
+    "has_safety_hazard": false,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0023",
+    "product_name": "Dual Dash Cam 4K Front & Rear",
+    "category_id": "CAT-10",
+    "base_price": 169.99,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0024",
+    "product_name": "Memory Foam Queen Mattress",
+    "category_id": "CAT-02",
+    "base_price": 699.0,
+    "has_safety_hazard": false,
+    "warranty_months": 60
+  },
+  {
+    "product_id": "PRD-0025",
+    "product_name": "Waterproof Smart Fitness Tracker",
+    "category_id": "CAT-02",
+    "base_price": 59.99,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0026",
+    "product_name": "Smart 4K Ultra TV 55-inch (Pro Model v26)",
+    "category_id": "CAT-02",
+    "base_price": 687.49,
+    "has_safety_hazard": false,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0027",
+    "product_name": "Ergonomic Mesh Office Chair (Pro Model v27)",
+    "category_id": "CAT-02",
+    "base_price": 236.88,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0028",
+    "product_name": "Lithium Ion Power Drill 20V (Pro Model v28)",
+    "category_id": "CAT-01",
+    "base_price": 123.49,
+    "has_safety_hazard": true,
+    "warranty_months": 36
+  },
+  {
+    "product_id": "PRD-0029",
+    "product_name": "Active Noise Cancelling Headphones (Pro Model v29)",
+    "category_id": "CAT-02",
+    "base_price": 273.75,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0030",
+    "product_name": "Stainless Steel Multi-Cooker (Pro Model v30)",
+    "category_id": "CAT-01",
+    "base_price": 84.96,
+    "has_safety_hazard": true,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0031",
+    "product_name": "Mechanical Gaming Keyboard (Pro Model v31)",
+    "category_id": "CAT-08",
+    "base_price": 106.25,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0032",
+    "product_name": "Wireless Fast Charging Pad (Pro Model v32)",
+    "category_id": "CAT-02",
+    "base_price": 44.98,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0033",
+    "product_name": "High-Pressure Espresso Machine (Pro Model v33)",
+    "category_id": "CAT-01",
+    "base_price": 562.5,
+    "has_safety_hazard": true,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0034",
+    "product_name": "Cordless Stick Vacuum Cleaner (Pro Model v34)",
+    "category_id": "CAT-01",
+    "base_price": 265.99,
+    "has_safety_hazard": true,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0035",
+    "product_name": "Smart Security Camera 1080p (Pro Model v35)",
+    "category_id": "CAT-06",
+    "base_price": 76.99,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0036",
+    "product_name": "Portable Bluetooth Speaker (Pro Model v36)",
+    "category_id": "CAT-02",
+    "base_price": 42.49,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0037",
+    "product_name": "Organic Cotton Bedding Sheet Set (Pro Model v37)",
+    "category_id": "CAT-09",
+    "base_price": 71.25,
+    "has_safety_hazard": false,
+    "warranty_months": 6
+  },
+  {
+    "product_id": "PRD-0038",
+    "product_name": "Professional Blender 1200W (Pro Model v38)",
+    "category_id": "CAT-01",
+    "base_price": 187.49,
+    "has_safety_hazard": true,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0039",
+    "product_name": "Compact Dehumidifier 30 Pint (Pro Model v39)",
+    "category_id": "CAT-02",
+    "base_price": 180.49,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0040",
+    "product_name": "Digital Smart Door Lock (Pro Model v40)",
+    "category_id": "CAT-06",
+    "base_price": 169.99,
+    "has_safety_hazard": false,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0041",
+    "product_name": "USB-C Dual Display Docking Station (Pro Model v41)",
+    "category_id": "CAT-10",
+    "base_price": 149.38,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0042",
+    "product_name": "True Wireless Fitness Earbuds (Pro Model v42)",
+    "category_id": "CAT-02",
+    "base_price": 119.98,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0043",
+    "product_name": "Electric Standing Desk 55x28 (Pro Model v43)",
+    "category_id": "CAT-02",
+    "base_price": 383.9,
+    "has_safety_hazard": false,
+    "warranty_months": 36
+  },
+  {
+    "product_id": "PRD-0044",
+    "product_name": "Smart Wi-Fi Thermostat (Pro Model v44)",
+    "category_id": "CAT-10",
+    "base_price": 118.15,
+    "has_safety_hazard": false,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0045",
+    "product_name": "Ceramic Nonstick Cookware Set (Pro Model v45)",
+    "category_id": "CAT-02",
+    "base_price": 175.99,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0046",
+    "product_name": "Portable Power Bank 20000mAh (Pro Model v46)",
+    "category_id": "CAT-01",
+    "base_price": 37.99,
+    "has_safety_hazard": true,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0047",
+    "product_name": "Air Purifier HEPA H13 (Pro Model v47)",
+    "category_id": "CAT-02",
+    "base_price": 178.5,
+    "has_safety_hazard": false,
+    "warranty_months": 24
+  },
+  {
+    "product_id": "PRD-0048",
+    "product_name": "Dual Dash Cam 4K Front & Rear (Pro Model v48)",
+    "category_id": "CAT-10",
+    "base_price": 212.49,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  },
+  {
+    "product_id": "PRD-0049",
+    "product_name": "Memory Foam Queen Mattress (Pro Model v49)",
+    "category_id": "CAT-02",
+    "base_price": 1048.5,
+    "has_safety_hazard": false,
+    "warranty_months": 60
+  },
+  {
+    "product_id": "PRD-0050",
+    "product_name": "Waterproof Smart Fitness Tracker (Pro Model v50)",
+    "category_id": "CAT-02",
+    "base_price": 74.99,
+    "has_safety_hazard": false,
+    "warranty_months": 12
+  }
+]
