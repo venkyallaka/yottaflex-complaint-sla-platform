@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YottaFlex | Enterprise Complaint & SLA Management Platform</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar / Brand -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">YF</div>
+        <div class="brand-text">
+          <h2>YottaFlex AI</h2>
+          <span>Complaint & SLA Engine</span>
+        </div>
+      </div>
+
+      <div class="persona-section">
+        <label>ACTIVE ACTOR ROLE</label>
+        <select id="role-selector" class="role-select" onchange="switchPersona(this.value)">
+          <option value="analyst">Operations Analyst</option>
+          <option value="owner">Process Owner</option>
+          <option value="approver">Approver</option>
+          <option value="requester">Business Requester</option>
+          <option value="admin">System Administrator</option>
+        </select>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="tab-dashboard" onclick="setTab('tab-dashboard')">
+          <span class="icon">📊</span> Overview & KPIs
+        </button>
+        <button class="nav-item" data-tab="tab-pipeline" onclick="setTab('tab-pipeline')">
+          <span class="icon">📋</span> Complaint Pipeline
+        </button>
+        <button class="nav-item" data-tab="tab-approvals" onclick="setTab('tab-approvals')">
+          <span class="icon">⚖️</span> Approvals Queue <span id="badge-approvals" class="badge">0</span>
+        </button>
+        <button class="nav-item" data-tab="tab-new-ticket" onclick="setTab('tab-new-ticket')">
+          <span class="icon">➕</span> File New Complaint
+        </button>
+        <button class="nav-item" data-tab="tab-audit" onclick="setTab('tab-audit')">
+          <span class="icon">🔍</span> Integrity & Anomalies
+        </button>
+        <button class="nav-item" data-tab="tab-events" onclick="setTab('tab-events')">
+          <span class="icon">📜</span> Traceability Audit Log
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status-indicator online"></div>
+        <div>
+          <div class="text-xs font-semibold">FastAPI Backend: Online</div>
+          <a href="/docs" target="_blank" class="text-xs api-link">Interactive Swagger API ↗</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-title">
+          <h1 id="view-title">Operations Analyst Dashboard</h1>
+          <p id="view-subtitle">Real-time complaint triage, SLA clock enforcement, and resolution tracking.</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" onclick="refreshCurrentView()">🔄 Refresh Data</button>
+          <button class="btn btn-primary" onclick="setTab('tab-new-ticket')">➕ Ingest Complaint</button>
+        </div>
+      </header>
+
+      <div class="content-body">
+        <!-- TAB 1: DASHBOARD / KPIS -->
+        <section id="tab-dashboard" class="tab-pane active">
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span>Total Complaints</span>
+                <span class="kpi-icon">📁</span>
+              </div>
+              <div class="kpi-value" id="kpi-total">0</div>
+              <div class="kpi-sub">Across 10 product categories</div>
+            </div>
+
+            <div class="kpi-card accent-green">
+              <div class="kpi-header">
+                <span>SLA Compliance Rate</span>
+                <span class="kpi-icon">⏱️</span>
+              </div>
+              <div class="kpi-value" id="kpi-sla">0%</div>
+              <div class="kpi-sub">Target: >= 95.0%</div>
+            </div>
+
+            <div class="kpi-card accent-blue">
+              <div class="kpi-header">
+                <span>Mean Time to Resolution</span>
+                <span class="kpi-icon">⚡</span>
+              </div>
+              <div class="kpi-value" id="kpi-mttr">0 hrs</div>
+              <div class="kpi-sub">Excludes customer pause time</div>
+            </div>
+
+            <div class="kpi-card accent-yellow">
+              <div class="kpi-header">
+                <span>Avg Customer CSAT</span>
+                <span class="kpi-icon">⭐</span>
+              </div>
+              <div class="kpi-value" id="kpi-csat">0 / 5.0</div>
+              <div class="kpi-sub" id="kpi-nps">NPS: +0.0</div>
+            </div>
+          </div>
+
+          <div class="grid-2col mt-6">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Priority Tiers Breakdown</h3>
+              </div>
+              <div class="panel-body" id="priority-breakdown-container">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Lifecycle Status Distribution</h3>
+              </div>
+              <div class="panel-body" id="status-breakdown-container">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 2: PIPELINE -->
+        <section id="tab-pipeline" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header flex-between">
+              <h3>Complaint Management Pipeline</h3>
+              <div class="filters-bar">
+                <input type="text" id="pipeline-search" placeholder="Search ID or Customer..." oninput="debounceSearch()">
+                <select id="filter-priority" onchange="loadPipeline()">
+                  <option value="">All Priorities</option>
+                  <option value="P1_CRITICAL">P1_CRITICAL</option>
+                  <option value="P2_HIGH">P2_HIGH</option>
+                  <option value="P3_MEDIUM">P3_MEDIUM</option>
+                  <option value="P4_LOW">P4_LOW</option>
+                </select>
+                <select id="filter-status" onchange="loadPipeline()">
+                  <option value="">All Statuses</option>
+                  <option value="OPEN">OPEN</option>
+                  <option value="ASSIGNED">ASSIGNED</option>
+                  <option value="IN_INVESTIGATION">IN_INVESTIGATION</option>
+                  <option value="PENDING_CUSTOMER">PENDING_CUSTOMER</option>
+                  <option value="RESOLVED">RESOLVED</option>
+                  <option value="CLOSED">CLOSED</option>
+                  <option value="REOPENED">REOPENED</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Ticket ID</th>
+                    <th>Customer</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Safety</th>
+                    <th>Repeat</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="pipeline-tbody">
+                  <!-- Dynamic rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: APPROVALS QUEUE -->
+        <section id="tab-approvals" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Pending Approver Sign-Off Queue</h3>
+              <p class="text-sm text-gray">Financial disbursements > $250.00 and Product Safety resolutions require governance sign-off.</p>
+            </div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Complaint ID</th>
+                    <th>Customer</th>
+                    <th>Remedy Type</th>
+                    <th>Compensation</th>
+                    <th>Reason / Root Cause</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="approvals-tbody">
+                  <!-- Dynamic rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 4: NEW COMPLAINT INGESTION -->
+        <section id="tab-new-ticket" class="tab-pane">
+          <div class="panel max-w-2xl">
+            <div class="panel-header">
+              <h3>Ingest Customer Complaint</h3>
+              <p class="text-sm text-gray">Applies NLP text classification, priority matrix, SLA clock, and automatic team routing.</p>
+            </div>
+            <div class="panel-body">
+              <form id="new-complaint-form" onsubmit="handleCreateComplaint(event)">
+                <div class="form-group">
+                  <label>Customer ID *</label>
+                  <input type="text" id="form-customer-id" required value="CUS-000001" placeholder="CUS-000001">
+                </div>
+                <div class="form-group">
+                  <label>Linked Order ID (Optional)</label>
+                  <input type="text" id="form-order-id" value="ORD-2026-000001" placeholder="ORD-2026-000001">
+                </div>
+                <div class="form-group">
+                  <label>Intake Channel *</label>
+                  <select id="form-channel" class="form-select">
+                    <option value="WEB_PORTAL">WEB_PORTAL</option>
+                    <option value="EMAIL">EMAIL</option>
+                    <option value="PHONE">PHONE</option>
+                    <option value="CHAT">CHAT</option>
+                    <option value="MOBILE_APP">MOBILE_APP</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Complaint Message Body *</label>
+                  <textarea id="form-message" rows="4" required placeholder="Describe the issue... (e.g. The battery started smoking and sparking while charging!)"></textarea>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-primary">Process & Ingest Ticket</button>
+                  <button type="button" class="btn btn-secondary" onclick="setTab('tab-pipeline')">Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 5: INTEGRITY & ANOMALY SUITE -->
+        <section id="tab-audit" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header flex-between">
+              <div>
+                <h3>Dataset Integrity & Anomaly Audit Suite</h3>
+                <p class="text-sm text-gray">Validates foreign keys, chronological consistency, lifecycle invariants, and reconciles against ground_truth.json.</p>
+              </div>
+              <button class="btn btn-secondary" onclick="runLiveAudit()">▶ Execute Live Audit</button>
+            </div>
+            <div class="panel-body">
+              <div id="audit-summary-box" class="audit-summary">
+                Click "Execute Live Audit" to run the complete validation suite across all 11 entities.
+              </div>
+              <div class="mt-4">
+                <h4>Injected Edge Cases Reconciliation</h4>
+                <div class="table-container mt-2">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Anomaly Code</th>
+                        <th>Target Entity</th>
+                        <th>Entity ID</th>
+                        <th>Injected Defect</th>
+                        <th>Ground Truth Verification</th>
+                      </tr>
+                    </thead>
+                    <tbody id="audit-anomalies-tbody">
+                      <!-- Dynamic rows -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 6: EVENT TRACEABILITY LOG -->
+        <section id="tab-events" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Immutable Audit Event Stream</h3>
+              <p class="text-sm text-gray">Append-only event log recording all state transitions, role interventions, and approvals.</p>
+            </div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Event ID</th>
+                    <th>Complaint ID</th>
+                    <th>Event Type</th>
+                    <th>Actor Role</th>
+                    <th>Actor ID</th>
+                    <th>Event Payload</th>
+                    <th>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody id="events-tbody">
+                  <!-- Dynamic rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="detail-modal" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="modal-title">Ticket CMP-2026-000001</h2>
+        <button class="close-btn" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-content" id="modal-body">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
