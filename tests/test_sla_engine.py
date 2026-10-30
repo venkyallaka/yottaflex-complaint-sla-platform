@@ -65,3 +65,4 @@ def test_sla_pause_and_resume_extension():
     new_target_resol = datetime.fromisoformat(sla["target_resolution_time"])
     # Target resolution deadline extended by exactly 3 hours (180 minutes)
     assert int((new_target_resol - initial_target_resol).total_seconds() / 60) == 180
+

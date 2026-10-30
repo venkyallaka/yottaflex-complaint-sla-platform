@@ -36,3 +36,4 @@ def emit_event(
     db.add(event)
     db.commit()
     return event
+

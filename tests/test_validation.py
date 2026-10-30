@@ -9,3 +9,4 @@ def test_validation_suite_executes_cleanly():
     assert success is True
     assert suite.passed_checks == suite.total_checks
     assert len(suite.detected_anomalies) == 6
+

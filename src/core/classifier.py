@@ -71,3 +71,4 @@ def classify_text(text: str) -> Dict[str, Any]:
         "severity": severity,
         "sentiment_score": sentiment
     }
+

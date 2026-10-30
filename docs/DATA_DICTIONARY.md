@@ -203,3 +203,4 @@ Immutable append-only log capturing all state changes and lifecycle events.
 | `actor_id` | `VARCHAR(32)` | Required | Valid actor identifier | None | Non-unique | Identifying username or agent/approver ID. |
 | `event_payload`| `JSON` / `TEXT`| Required | Serialized JSON dictionary | None | Non-unique | State delta containing before/after values. |
 | `created_at` | `TIMESTAMP` | Required | ISO 8601 UTC timestamp | UTC | Non-unique | Immutable wall clock event timestamp. |
+

@@ -43,3 +43,4 @@ def determine_team_and_agent(category_id: str, priority: str) -> Dict[str, str]:
         "team_name": team,
         "agent_id": agent
     }
+

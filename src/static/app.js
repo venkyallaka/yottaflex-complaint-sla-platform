@@ -482,3 +482,4 @@ async function loadRecentEvents() {
     console.error("Failed to load events:", err);
   }
 }
+

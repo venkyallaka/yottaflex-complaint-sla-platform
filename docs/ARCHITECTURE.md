@@ -120,3 +120,4 @@ Every state transition generates an immutable record in `complaint_events`:
 }
 ```
 History is never overwritten; all reports, timelines, and audit trails reconstruct entity state by folding events.
+

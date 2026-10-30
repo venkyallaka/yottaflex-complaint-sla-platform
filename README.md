@@ -256,3 +256,4 @@ yottaflex/
 ## AI Transparency & Prompt Disclosure
 
 In compliance with **Item 03 of the YottaFlex AI Candidate Project Submission Guidelines** and **Question 6 of the Candidate FAQ**, the complete prompt history, acceleration disclosure, and record of engineering review are documented in [`ai_transparency/PROMPT_HISTORY.md`](ai_transparency/PROMPT_HISTORY.md).
+

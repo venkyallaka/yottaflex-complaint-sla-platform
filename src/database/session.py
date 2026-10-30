@@ -109,3 +109,4 @@ def init_db_and_seed():
         print(f"[!] Error seeding database: {e}")
     finally:
         db.close()
+

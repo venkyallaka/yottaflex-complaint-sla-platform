@@ -38,3 +38,4 @@ class SurveySubmitRequest(BaseModel):
 
 class ReopenRequest(BaseModel):
     reason: str = Field(..., description="Reason for reopening resolved case")
+

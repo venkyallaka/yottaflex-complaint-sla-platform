@@ -25,3 +25,4 @@ def calculate_priority(
         is_repeat_complaint=is_repeat_complaint,
         severity=severity
     )
+

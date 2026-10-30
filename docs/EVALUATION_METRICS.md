@@ -52,3 +52,4 @@ The synthetic dataset generator and validation suite are evaluated across the 7 
 | **(e) Anomaly & Edge Case Coverage**| Recall of 6 injected negative scenarios. | Exactly 100% detection rate by `validate_dataset.py` matching ground truth records. |
 | **(f) Ground Truth Isolation** | Zero-leakage verification. | Anomaly indicators and ground truth labels exist solely in `ground_truth.json` / `ground_truth.csv`. |
 | **(g) Fixed-Seed Reproducibility**| SHA-256 dataset hash reproducibility across successive runs. | Identical checksums and identical row counts across 100% of generated tables. |
+

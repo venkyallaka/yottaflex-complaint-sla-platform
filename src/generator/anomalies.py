@@ -92,3 +92,4 @@ class GroundTruthTracker:
             "is_safety": is_safety,
             "is_vulnerable": is_vulnerable
         })
+

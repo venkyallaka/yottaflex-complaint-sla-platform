@@ -103,3 +103,4 @@ def test_end_to_end_complaint_lifecycle():
     res = client.post(f"/api/v1/complaints/{complaint_id}/reopen", json=reopen_payload)
     assert res.status_code == 200
     assert res.json()["status"] == "REOPENED"
+

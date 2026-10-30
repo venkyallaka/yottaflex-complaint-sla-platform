@@ -87,3 +87,4 @@ def test_rule_08_standard_low_fallback():
     assert res["matched_rule_id"] == "RUL-08"
     assert res["target_response_hours"] == 24
     assert res["target_resolution_hours"] == 96
+

@@ -174,3 +174,4 @@ class ComplaintEvent(Base):
     created_at = Column(String(32), nullable=False)
 
     complaint = relationship("Complaint", back_populates="events")
+
