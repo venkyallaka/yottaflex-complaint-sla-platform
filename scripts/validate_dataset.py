@@ -36,7 +36,19 @@ def load_ground_truth() -> Dict[str, Any]:
         return json.load(f)
 
 class ValidationSuite:
-    def __init__(self):
+    def __init__(self, source: str = "dataset", db_session=None):
+        self.source = source
+        self.db = db_session
+        self.detected_anomalies: List[Dict[str, Any]] = []
+        self.passed_checks = 0
+        self.total_checks = 0
+        
+        if self.source == "database" and self.db is not None:
+            self._load_from_database()
+        else:
+            self._load_from_dataset()
+
+    def _load_from_dataset(self):
         self.customers = load_table("customers")
         self.products = load_table("products")
         self.categories = load_table("categories")
@@ -51,9 +63,36 @@ class ValidationSuite:
         self.events = load_table("complaint_events")
         self.ground_truth = load_ground_truth()
         
-        self.detected_anomalies: List[Dict[str, Any]] = []
-        self.passed_checks = 0
-        self.total_checks = 0
+        # Load isolated deliberate orphan anomaly test fixtures
+        anomalies_path = os.path.join(DATA_DIR, "anomalies", "orphan_complaints.json")
+        self.orphan_complaints = []
+        if os.path.exists(anomalies_path):
+            with open(anomalies_path, "r", encoding="utf-8") as f:
+                self.orphan_complaints = json.load(f)
+
+    def _load_from_database(self):
+        from src.database.models import (
+            Customer, Product, Category, PriorityRule, Order,
+            Complaint, ComplaintMessage, Assignment, SLAClock,
+            Resolution, Survey, ComplaintEvent
+        )
+        def to_dict(rows):
+            return [{c.name: getattr(r, c.name) for c in r.__table__.columns} for r in rows]
+            
+        self.customers = to_dict(self.db.query(Customer).all())
+        self.products = to_dict(self.db.query(Product).all())
+        self.categories = to_dict(self.db.query(Category).all())
+        self.priority_rules = to_dict(self.db.query(PriorityRule).all())
+        self.orders = to_dict(self.db.query(Order).all())
+        self.complaints = to_dict(self.db.query(Complaint).all())
+        self.messages = to_dict(self.db.query(ComplaintMessage).all())
+        self.assignments = to_dict(self.db.query(Assignment).all())
+        self.sla_clocks = to_dict(self.db.query(SLAClock).all())
+        self.resolutions = to_dict(self.db.query(Resolution).all())
+        self.surveys = to_dict(self.db.query(Survey).all())
+        self.events = to_dict(self.db.query(ComplaintEvent).all())
+        self.orphan_complaints = []
+        self.ground_truth = load_ground_truth()
 
     def record_check(self, name: str, passed: bool, details: str = ""):
         self.total_checks += 1
@@ -64,8 +103,9 @@ class ValidationSuite:
             print(f"  [FAIL] {name} {details}")
 
     def run_all(self):
+        source_label = "Live Operational Database" if self.source == "database" else "Complete Synthetic Dataset & Fixtures"
         print("=================================================================")
-        print("          YottaFlex AI - Dataset Integrity & Validation Suite   ")
+        print(f"   YottaFlex AI - Integrity & Validation Suite ({source_label})")
         print("=================================================================")
         
         self.check_primary_keys()
@@ -78,9 +118,10 @@ class ValidationSuite:
         
         print("=================================================================")
         print(f"Validation Summary: {self.passed_checks}/{self.total_checks} Check Categories Passed")
-        print(f"Injected Edge Cases Detected: {len(self.detected_anomalies)}/6 expected")
+        expected_anomalies_count = 5 if self.source == "database" else 6
+        print(f"Injected Edge Cases Detected: {len(self.detected_anomalies)}/{expected_anomalies_count} expected")
         print("=================================================================")
-        return (self.passed_checks == self.total_checks) and (len(self.detected_anomalies) == 6)
+        return (self.passed_checks == self.total_checks) and (len(self.detected_anomalies) == expected_anomalies_count)
 
     def check_primary_keys(self):
         print("\n--- 1. Primary Key Uniqueness ---")
@@ -130,7 +171,8 @@ class ValidationSuite:
         self.record_check("FK: products -> categories", len(orphan_prods) == 0, f"({len(orphan_prods)} orphans)")
 
         # 3. Complaints -> Customer (detects ERR_ORPHAN_COMPLAINT)
-        orphan_complaints = [c for c in self.complaints if c["customer_id"] not in cust_ids]
+        eval_complaints = self.complaints + getattr(self, "orphan_complaints", [])
+        orphan_complaints = [c for c in eval_complaints if c["customer_id"] not in cust_ids]
         if orphan_complaints:
             for c in orphan_complaints:
                 self.detected_anomalies.append({
@@ -251,18 +293,23 @@ class ValidationSuite:
         self.record_check("resolved_at >= complaint.created_at", True, f"(Isolated {len(temporal_inversions)} deliberate temporal inversion anomaly)")
 
         # 6. Survey submitted_at >= Resolution resolved_at (detects ERR_PREMATURE_SURVEY)
-        res_map = {r["complaint_id"]: datetime.fromisoformat(r["resolved_at"]) for r in self.resolutions}
+        res_by_cmp: Dict[str, List[datetime]] = {}
+        for r in self.resolutions:
+            res_by_cmp.setdefault(r["complaint_id"], []).append(datetime.fromisoformat(r["resolved_at"]))
+            
         premature_surveys = []
         for s in self.surveys:
-            if s["complaint_id"] in res_map:
+            cid = s["complaint_id"]
+            if cid in res_by_cmp:
                 srv_dt = datetime.fromisoformat(s["submitted_at"])
-                res_dt = res_map[s["complaint_id"]]
-                if srv_dt < res_dt:
+                # Survey is premature only if submitted before ANY resolution on the ticket
+                earliest_res_dt = min(res_by_cmp[cid])
+                if srv_dt < earliest_res_dt:
                     premature_surveys.append(s)
                     self.detected_anomalies.append({
                         "code": "ERR_PREMATURE_SURVEY",
                         "entity_id": s["survey_id"],
-                        "details": f"Survey submitted ({s['submitted_at']}) before resolution ({res_dt.isoformat()})"
+                        "details": f"Survey submitted ({s['submitted_at']}) before resolution ({earliest_res_dt.isoformat()})"
                     })
         self.record_check("survey.submitted_at >= resolution.resolved_at", True, f"(Isolated {len(premature_surveys)} deliberate premature survey anomaly)")
 
@@ -336,9 +383,39 @@ class ValidationSuite:
             cust_history[cid].append(c)
         self.record_check("Recurrence linking invariant (prior complaint within 30 days)", True, f"(Isolated {len(unlinked_recurrences)} deliberate unlinked recurrence anomaly)")
 
+        # Check reopened complaints lifecycle integrity (History, SLA reset, Events)
+        reopened_cmps = [c for c in self.complaints if c["status"] == "REOPENED"]
+        reopened_valid = True
+        for rc in reopened_cmps:
+            cid = rc["complaint_id"]
+            has_res = any(r["complaint_id"] == cid for r in self.resolutions)
+            has_reopen_event = any(e["complaint_id"] == cid and e["event_type"] == "REOPENED" for e in self.events)
+            sla_match = next((s for s in self.sla_clocks if s["complaint_id"] == cid), None)
+            clock_ok = sla_match and sla_match["clock_status"] == "RUNNING" and sla_match["actual_resolution_time"] is None
+            if not (has_res and has_reopen_event and clock_ok):
+                reopened_valid = False
+                break
+        self.record_check("Reopened Complaints Lifecycle Integrity", reopened_valid, f"({len(reopened_cmps)} reopened tickets with preserved history and reset SLA)")
+
     def reconcile_with_ground_truth(self):
         print("\n--- 7. Anomaly Reconciliation with Ground Truth ---")
         gt_anomalies = self.ground_truth.get("anomalies", [])
+        
+        if self.source == "database":
+            # In live database, orphan complaints are quarantined to preserve SQLite FK constraints.
+            # The remaining operational anomalies are traced and matched against ground truth.
+            expected_anomalies = [a for a in gt_anomalies if a["anomaly_code"] != "ERR_ORPHAN_COMPLAINT"]
+            all_matched = True
+            for a in expected_anomalies:
+                code = a["anomaly_code"]
+                matched = any(d["code"] == code and d["entity_id"] == a["entity_id"] for d in self.detected_anomalies)
+                status_str = "MATCHED [100% RECALL]" if matched else "MISSED"
+                print(f"    - [{code}] on {a['entity_type']} ({a['entity_id']}): {status_str}")
+                if not matched:
+                    all_matched = False
+            self.record_check("Live Database Ground Truth Reconciliation", all_matched, f"({len(self.detected_anomalies)}/{len(expected_anomalies)} operational anomalies traced)")
+            return
+
         expected_codes = {a["anomaly_code"] for a in gt_anomalies}
         detected_codes = {d["code"] for d in self.detected_anomalies}
         

@@ -168,6 +168,7 @@ class DatasetGenerator:
         self.resolutions: List[Dict[str, Any]] = []
         self.surveys: List[Dict[str, Any]] = []
         self.complaint_events: List[Dict[str, Any]] = []
+        self.anomaly_fixtures: List[Dict[str, Any]] = []
         
         self.base_time = datetime(2026, 1, 1, 8, 0, 0, tzinfo=timezone.utc)
         self.event_counter = 1
@@ -565,7 +566,7 @@ class DatasetGenerator:
             })
             
             # Resolution & Approvals
-            if status in ["RESOLVED", "CLOSED", "RESOLUTION_PENDING"]:
+            if status in ["RESOLVED", "CLOSED", "RESOLUTION_PENDING", "REOPENED"]:
                 res_types = ["FULL_REFUND", "PARTIAL_CREDIT", "REPLACEMENT", "TECHNICAL_FIX", "PROCESS_APOLOGY"]
                 res_type = self.rng.choice(res_types)
                 root_causes = ["DEFECTIVE_PRODUCT", "LOGISTICS_DELAY", "BILLING_GLITCH", "USER_ERROR", "CARRIER_LOST"]
@@ -582,22 +583,30 @@ class DatasetGenerator:
                     approver = None
                     appr_status = "PENDING_REVIEW"
                     res_time = (complaint_dt + timedelta(hours=3)).isoformat()
+                elif status == "REOPENED":
+                    requires_appr = (comp_amount > 250.00) or is_safety_issue
+                    approver = self.rng.choice(APPROVER_POOL) if requires_appr else None
+                    appr_status = "APPROVED" if requires_appr else "NOT_REQUIRED"
+                    initial_resol_dt = complaint_dt + timedelta(hours=self.rng.randint(4, 20))
+                    res_time = initial_resol_dt.isoformat()
                 else:
                     requires_appr = (comp_amount > 250.00) or is_safety_issue
                     approver = self.rng.choice(APPROVER_POOL) if requires_appr else None
                     appr_status = "APPROVED" if requires_appr else "NOT_REQUIRED"
-                    res_time = actual_resol_dt.isoformat()
+                    res_time = actual_resol_dt.isoformat() if actual_resol_dt else (complaint_dt + timedelta(hours=8)).isoformat()
                 
                 self.resolutions.append({
                     "resolution_id": f"RES-{cid}",
                     "complaint_id": cid,
+                    "version": 1,
                     "resolution_type": res_type,
                     "root_cause": root_cause,
                     "compensation_amount": comp_amount,
                     "requires_approval": requires_appr,
                     "approver_id": approver,
                     "approval_status": appr_status,
-                    "resolved_at": res_time
+                    "resolved_at": res_time,
+                    "is_current": False if status == "REOPENED" else True
                 })
                 
                 self.complaint_events.append({
@@ -606,22 +615,55 @@ class DatasetGenerator:
                     "event_type": "RESOLUTION_APPROVED" if appr_status == "APPROVED" else "RESOLUTION_PROPOSED",
                     "actor_role": "APPROVER" if appr_status == "APPROVED" else "PROCESS_OWNER",
                     "actor_id": approver if approver else agent_id,
-                    "event_payload": json.dumps({"resolution_type": res_type, "compensation": comp_amount, "approval_status": appr_status}),
+                    "event_payload": json.dumps({"version": 1, "resolution_type": res_type, "compensation": comp_amount, "approval_status": appr_status}),
                     "created_at": res_time
                 })
                 
-                # If REOPENED status, record reopening event retaining prior history
+                # If REOPENED status, record full sequence: RESOLVED -> CLOSED -> REOPENED -> IN_INVESTIGATION
                 if status == "REOPENED":
-                    reopen_dt = (complaint_dt + timedelta(days=2)).isoformat()
+                    initial_closed_dt = initial_resol_dt + timedelta(hours=self.rng.randint(1, 10))
+                    self.complaint_events.append({
+                        "event_id": self._next_event_id(),
+                        "complaint_id": cid,
+                        "event_type": "CLOSED",
+                        "actor_role": "SYSTEM",
+                        "actor_id": "AUTO_CLOSE_JOB",
+                        "event_payload": json.dumps({"note": "Complaint settled and closed after initial resolution"}),
+                        "created_at": initial_closed_dt.isoformat()
+                    })
+                    
+                    reopen_dt = initial_closed_dt + timedelta(hours=self.rng.randint(6, 36))
                     self.complaint_events.append({
                         "event_id": self._next_event_id(),
                         "complaint_id": cid,
                         "event_type": "REOPENED",
                         "actor_role": "BUSINESS_REQUESTER",
                         "actor_id": customer_id,
-                        "event_payload": json.dumps({"reason": "Issue persisted after initial settlement"}),
-                        "created_at": reopen_dt
+                        "event_payload": json.dumps({"reason": "Issue persisted after initial settlement", "reopened_at": reopen_dt.isoformat()}),
+                        "created_at": reopen_dt.isoformat()
                     })
+                    
+                    # Subsequent re-investigation event
+                    reinvestigate_dt = reopen_dt + timedelta(minutes=15)
+                    self.complaint_events.append({
+                        "event_id": self._next_event_id(),
+                        "complaint_id": cid,
+                        "event_type": "IN_INVESTIGATION",
+                        "actor_role": "SYSTEM",
+                        "actor_id": "WORKFLOW_ENGINE",
+                        "event_payload": json.dumps({"stage": "reopened_reinvestigation"}),
+                        "created_at": reinvestigate_dt.isoformat()
+                    })
+                    
+                    # Update reopened SLA clock target
+                    target_reopen_resol_dt = reopen_dt + timedelta(hours=resol_hours)
+                    sla_record = self.sla_clocks[-1]
+                    sla_record["clock_status"] = "RUNNING"
+                    sla_record["actual_resolution_time"] = None
+                    sla_record["target_resolution_time"] = target_reopen_resol_dt.isoformat()
+                    sla_record["paused_at"] = None
+                    sla_record["paused_duration_minutes"] = 0
+                    sla_record["is_resolution_breached"] = False
                 
                 # Survey (only for resolved/closed complaints with an actual resolution timestamp)
                 if status in ["RESOLVED", "CLOSED"] and actual_resol_dt and self.rng.random() < 0.75:
@@ -638,6 +680,7 @@ class DatasetGenerator:
                     self.surveys.append({
                         "survey_id": f"SRV-{cid}",
                         "complaint_id": cid,
+                        "cycle": 1,
                         "csat_score": csat,
                         "nps_score": nps,
                         "effort_score": effort,
@@ -673,17 +716,21 @@ class DatasetGenerator:
         print("[*] Injecting 6 explicit labeled negative scenarios / anomalies across distinct tickets...")
         
         # 1. ERR_ORPHAN_COMPLAINT: Complaint without valid customer
-        orphan_cmp = self.complaints[10]
-        original_customer = orphan_cmp["customer_id"]
-        orphan_cmp["customer_id"] = "CUS-999999"
+        # Keep operational complaint valid, store corrupted record in separate anomaly fixture
+        orphan_candidate = self.complaints[10]
+        original_customer = orphan_candidate["customer_id"]
+        orphan_fixture = dict(orphan_candidate)
+        orphan_fixture["customer_id"] = "CUS-999999"
+        self.anomaly_fixtures.append(orphan_fixture)
+        
         self.ground_truth.record_anomaly(
             anomaly_code="ERR_ORPHAN_COMPLAINT",
-            entity_id=orphan_cmp["complaint_id"],
+            entity_id=orphan_candidate["complaint_id"],
             entity_type="complaints",
             field_name="customer_id",
             injected_value="CUS-999999",
             expected_value=original_customer,
-            notes="Injected non-existent customer ID to test referential integrity check."
+            notes="Injected non-existent customer ID in isolated anomaly test fixture to evaluate FK integrity without corrupting the operational DB."
         )
 
         # 2. ERR_TEMPORAL_INVERSION: Resolution before complaint
@@ -703,7 +750,7 @@ class DatasetGenerator:
             notes="Injected resolved_at timestamp 2 days before complaint created_at."
         )
 
-        used_complaint_ids = {orphan_cmp["complaint_id"], cmp_target_inv["complaint_id"]}
+        used_complaint_ids = {orphan_candidate["complaint_id"], cmp_target_inv["complaint_id"]}
 
         # 3. ERR_INVALID_SLA_PAUSE: SLA clock pauses incorrectly
         inv_candidate = next(c for c in self.complaints if c["status"] == "IN_INVESTIGATION" and c["complaint_id"] not in used_complaint_ids)
@@ -865,6 +912,14 @@ class DatasetGenerator:
                 writer = csv.DictWriter(f, fieldnames=list(self.ground_truth.anomalies[0].keys()))
                 writer.writeheader()
                 writer.writerows(self.ground_truth.anomalies)
+
+        # Export isolated anomaly test fixtures
+        anomalies_dir = os.path.join(output_dir, "anomalies")
+        os.makedirs(anomalies_dir, exist_ok=True)
+        if self.anomaly_fixtures:
+            anomalies_path = os.path.join(anomalies_dir, "orphan_complaints.json")
+            with open(anomalies_path, "w", encoding="utf-8") as f:
+                json.dump(self.anomaly_fixtures, f, indent=2)
 
         manifest_path = os.path.join(output_dir, "manifest.json")
         with open(manifest_path, "w", encoding="utf-8") as f:

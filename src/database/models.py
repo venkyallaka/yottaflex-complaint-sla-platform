@@ -94,9 +94,24 @@ class Complaint(Base):
     messages = relationship("ComplaintMessage", back_populates="complaint", cascade="all, delete-orphan")
     assignments = relationship("Assignment", back_populates="complaint", cascade="all, delete-orphan")
     sla_clock = relationship("SLAClock", back_populates="complaint", uselist=False, cascade="all, delete-orphan")
-    resolution = relationship("Resolution", back_populates="complaint", uselist=False, cascade="all, delete-orphan")
-    survey = relationship("Survey", back_populates="complaint", uselist=False, cascade="all, delete-orphan")
+    resolutions = relationship("Resolution", back_populates="complaint", order_by="desc(Resolution.version)", cascade="all, delete-orphan")
+    surveys = relationship("Survey", back_populates="complaint", order_by="desc(Survey.submitted_at)", cascade="all, delete-orphan")
     events = relationship("ComplaintEvent", back_populates="complaint", cascade="all, delete-orphan")
+
+    @property
+    def resolution(self):
+        """Returns the active or most recent resolution for backwards compatibility."""
+        if not self.resolutions:
+            return None
+        for r in self.resolutions:
+            if getattr(r, "is_current", True):
+                return r
+        return self.resolutions[0]
+
+    @property
+    def survey(self):
+        """Returns the most recent survey for backwards compatibility."""
+        return self.surveys[0] if self.surveys else None
 
 class ComplaintMessage(Base):
     __tablename__ = "complaint_messages"
@@ -141,8 +156,9 @@ class SLAClock(Base):
 
 class Resolution(Base):
     __tablename__ = "resolutions"
-    resolution_id = Column(String(36), primary_key=True, index=True)
-    complaint_id = Column(String(32), ForeignKey("complaints.complaint_id"), unique=True, nullable=False)
+    resolution_id = Column(String(48), primary_key=True, index=True)
+    complaint_id = Column(String(32), ForeignKey("complaints.complaint_id"), index=True, nullable=False)
+    version = Column(Integer, nullable=False, default=1)
     resolution_type = Column(String(32), nullable=False)
     root_cause = Column(String(64), nullable=False)
     compensation_amount = Column(Float, nullable=False, default=0.0)
@@ -150,20 +166,22 @@ class Resolution(Base):
     approver_id = Column(String(32), nullable=True)
     approval_status = Column(String(16), nullable=False, default="NOT_REQUIRED")
     resolved_at = Column(String(32), nullable=False)
+    is_current = Column(Boolean, nullable=False, default=True)
 
-    complaint = relationship("Complaint", back_populates="resolution")
+    complaint = relationship("Complaint", back_populates="resolutions")
 
 class Survey(Base):
     __tablename__ = "surveys"
-    survey_id = Column(String(36), primary_key=True, index=True)
-    complaint_id = Column(String(32), ForeignKey("complaints.complaint_id"), unique=True, nullable=False)
+    survey_id = Column(String(48), primary_key=True, index=True)
+    complaint_id = Column(String(32), ForeignKey("complaints.complaint_id"), index=True, nullable=False)
+    cycle = Column(Integer, nullable=False, default=1)
     csat_score = Column(Integer, nullable=False)
     nps_score = Column(Integer, nullable=False)
     effort_score = Column(Integer, nullable=False)
     feedback_comments = Column(Text, nullable=True)
     submitted_at = Column(String(32), nullable=False)
 
-    complaint = relationship("Complaint", back_populates="survey")
+    complaint = relationship("Complaint", back_populates="surveys")
 
 class ComplaintEvent(Base):
     __tablename__ = "complaint_events"

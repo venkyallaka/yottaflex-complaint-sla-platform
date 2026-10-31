@@ -1,7 +1,7 @@
 {
   "seed": 20261022,
   "scale": 1.0,
-  "generated_at": "2026-10-31T03:56:37.307358+00:00",
+  "generated_at": "2026-10-31T05:05:55.511810+00:00",
   "table_counts": {
     "customers": 5000,
     "products": 50,
@@ -12,9 +12,9 @@
     "complaint_messages": 6000,
     "assignments": 2000,
     "sla_clocks": 2000,
-    "resolutions": 1623,
-    "surveys": 1067,
-    "complaint_events": 5623
+    "resolutions": 1672,
+    "surveys": 1074,
+    "complaint_events": 5816
   },
   "file_checksums": {
     "csv/customers.csv": "c6bfdbe1f543bd5eaee1a7b16fd0c5f7d8eb339dd9d82479b8dca31e7f302e8e",
@@ -22,25 +22,25 @@
     "csv/categories.csv": "d227f32f77176cbea8098829fe81bbc5a05796ffc6be1dcb34f041cd3f05e79d",
     "csv/priority_rules.csv": "059f61dfae2ff10694599abda52abc2b4c01f6f02bbcd00c015954d6c5f06060",
     "csv/orders.csv": "3031d5a0287eee1fc5781183559c791ab030b041c63af8722d207236b50c5ba0",
-    "csv/complaints.csv": "8632d92c2dafa85792d2c20bfc7eb539e1959f95c84454920226ddab15902777",
-    "csv/complaint_messages.csv": "b4fcb76d523fd4bd058831a9a168dbcd85e253888fe7f3a123f81c5aa6ac3c5f",
-    "csv/assignments.csv": "d2db8acbca303f6fbb1ac69ce65ac1b51f3c0977154956747d3623790625685b",
-    "csv/sla_clocks.csv": "8a7ce0238f34684378b40240db203e7aa0a54e983090fd2acde9a90fd6061179",
-    "csv/resolutions.csv": "28b5904ddad3edc3ad01164ef0a49f94c6a23990a2f543bb7971ec35276861fe",
-    "csv/surveys.csv": "05c5e7a7c4fb40599e4539d8154f5117c173f131e55830a1bc6eea7a62516fb9",
-    "csv/complaint_events.csv": "c531759afadad6e94a934776f58b4ec6ee23d6c4c718211cc6aa88dcba700e7c",
+    "csv/complaints.csv": "b3f2dc3dbc185e53751dc7ae21318fff002bb6f1c2a0fdd3c517d0e367b198d1",
+    "csv/complaint_messages.csv": "34cdecf63e42057fe63735f3f4e528c0e96cbd37422c23de8d0cdaf9be3365be",
+    "csv/assignments.csv": "9a6e894fff65bb426aba04cd9d963c4557e3efc32897d164619b8ce497c89863",
+    "csv/sla_clocks.csv": "da1849b6d9c2c2b94c3ba0cf95a1b51558c70f507e1a8a4e4ec10b83451b65dd",
+    "csv/resolutions.csv": "53a943287e5a67b1924862ac81e38e1ae4cc8d6f4ee44c7c5b5e0c6052f5f58d",
+    "csv/surveys.csv": "d19341a11adcab61ffb2a1c04b6e9d0cb5d4c5daca2a591d149d89eca995dd9c",
+    "csv/complaint_events.csv": "555a2522e6e0304f10a6725e9acf1d7ac07db7477d06e45fb7061e5bd3aab0d8",
     "json/customers.json": "c41fd1751a19d68b93a503b217aadcaa6ffe682c8a4804eeb45d1298fc77a5b2",
     "json/products.json": "25000b4aca8cf57b078a5fdb11e6cdc3eb11bd7576126195d4ffcfd06b73356f",
     "json/categories.json": "b567bace8d088f7715df094ac01c22cbb7eb82a0a1c0f4656fa3842548d36870",
     "json/priority_rules.json": "fb6fd12009174bca4e2820c41ed34c6cae4f772bcbd316ac156cb2534a178754",
     "json/orders.json": "9674bba994f7e1234947335cd10796a88575149fda5f3490dd68113b1473138f",
-    "json/complaints.json": "698fb492a325bf3d2b6db120f43d4c0a6c554c11d544e2ab95ea57efd14a0839",
-    "json/complaint_messages.json": "a504ba621e3f0fbe348e9e118a58457f7f6f7c94d18bd089de0c8e10461cb152",
-    "json/assignments.json": "2098274b8f8145b1c2709450472d87837694eade2c8f9e6c526f4d9cd323ddc7",
-    "json/sla_clocks.json": "b0cea462770beaf7b16d5f1cf3349d5f2515f5427ff4840e54a95da291219ff4",
-    "json/resolutions.json": "e84818b4554fa6c884e2e652b2bef100009ff19a260ab0dc354abb2d4e98e3c5",
-    "json/surveys.json": "56a25f64d955a8699c422bce3c01d6bef9701c5bdf4d9af6cfa81e55a8be4f96",
-    "json/complaint_events.json": "737688fdfe8a49552461632ff7798addb0977c9d64d3ed9c07de314f8afe533f",
-    "sql/seed_data.sql": "f1ca108214cb2360f3b1286b4e1d16517df45759853e8a979bae56f7aa248e3f"
+    "json/complaints.json": "0b40c3c49aa4e8f6c78955a6be2904fa43095714b2e308fb30a3508d40e091ef",
+    "json/complaint_messages.json": "25028ec349a5fbc5b526df5f83b69ef326d1e1cf67fe454343a8bb94a59114a8",
+    "json/assignments.json": "ad725571de7b450b793d20b9033707129e5fd989136a25f877c970eb7549bd93",
+    "json/sla_clocks.json": "975aabf4271c180af5e30403af47b5a46463df9732db0247f66019003fcdc8fb",
+    "json/resolutions.json": "9a90842a54c1534a94f0aa56a9a4988eac2f088e869340239e9b7627edab9e0c",
+    "json/surveys.json": "d496a63de90f9139c43d1f0825f3eb887f8123a960c547694b3540716fb93cc5",
+    "json/complaint_events.json": "856306ed108d021516d858cc845e3a07f0422cb1725d8d4959b817c3c3dd9675",
+    "sql/seed_data.sql": "d7f423efa147796c36c60caa1e34ccb3d46cb63b724481ba81a3b684a4f1f3eb"
   }
 }

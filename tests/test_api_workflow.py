@@ -147,11 +147,85 @@ def test_end_to_end_complaint_lifecycle():
     assert res.status_code == 200
     assert res.json()["survey_id"] == f"SRV-{complaint_id}"
 
-    # 9. Reopen ticket test
+    # 9. Reopen ticket test & SLA reset verification
     reopen_payload = {
         "reason": "Replacement unit has a defective power cord."
     }
     res = client.post(f"/api/v1/complaints/{complaint_id}/reopen", json=reopen_payload)
     assert res.status_code == 200
     assert res.json()["status"] == "REOPENED"
+    assert "new_target_resolution_time" in res.json()
+
+    # Verify SLA clock was reset for reopened investigation cycle
+    detail_reopened = client.get(f"/api/v1/complaints/{complaint_id}").json()
+    assert detail_reopened["complaint"]["status"] == "REOPENED"
+    assert detail_reopened["sla_clock"]["clock_status"] == "RUNNING"
+    assert detail_reopened["sla_clock"]["actual_resolution_time"] is None
+    event_types = [e["event_type"] for e in detail_reopened["events"]]
+    assert "REOPENED" in event_types
+    assert "SLA_RESET" in event_types
+
+    # 10. Propose 2nd resolution version (verifies resolution history is NOT overwritten)
+    res_v2_payload = {
+        "resolution_type": "REPLACEMENT",
+        "root_cause": "DEFECTIVE_PRODUCT",
+        "compensation_amount": 50.00
+    }
+    res_v2 = client.post(f"/api/v1/complaints/{complaint_id}/resolution", json=res_v2_payload)
+    assert res_v2.status_code == 200
+    assert res_v2.json()["version"] == 2
+    assert res_v2.json()["requires_approval"] is True
+    assert res_v2.json()["complaint_status"] == "RESOLUTION_PENDING"
+
+    # Approver approves v2
+    res_appr_v2 = client.post(f"/api/v1/complaints/{complaint_id}/resolution/approve", json={
+        "approver_id": "APP-0001",
+        "approved": True,
+        "notes": "Approved replacement power cord"
+    })
+    assert res_appr_v2.status_code == 200
+    assert res_appr_v2.json()["complaint_status"] == "RESOLVED"
+
+    detail_v2 = client.get(f"/api/v1/complaints/{complaint_id}").json()
+    assert len(detail_v2["resolutions_history"]) == 2
+    assert detail_v2["resolutions_history"][0]["version"] == 1
+    assert detail_v2["resolutions_history"][0]["compensation_amount"] == 350.00
+    assert detail_v2["resolutions_history"][1]["version"] == 2
+    assert detail_v2["resolutions_history"][1]["compensation_amount"] == 50.00
+
+    # 11. Repeated survey for reopened cycle 2
+    survey_v2_payload = {
+        "csat_score": 4,
+        "nps_score": 9,
+        "effort_score": 4,
+        "feedback_comments": "Second replacement works perfectly."
+    }
+    res_s2 = client.post(f"/api/v1/complaints/{complaint_id}/survey", json=survey_v2_payload)
+    assert res_s2.status_code == 200
+    assert res_s2.json()["cycle"] == 2
+
+    detail_s2 = client.get(f"/api/v1/complaints/{complaint_id}").json()
+    assert len(detail_s2["surveys_history"]) == 2
+    assert detail_s2["complaint"]["status"] == "CLOSED"
+
+def test_analytics_audit_endpoint_live_db_and_dataset():
+    # 1. Live database audit
+    res_db = client.get("/api/v1/analytics/audit?source=database")
+    assert res_db.status_code == 200
+    data_db = res_db.json()
+    assert data_db["source"] == "database"
+    assert data_db["is_healthy"] is True
+    assert data_db["live_database_records"]["customers"] == 5000
+    assert data_db["live_database_records"]["complaints"] >= 2000
+
+    # 2. Complete generated dataset audit against ground truth
+    res_ds = client.get("/api/v1/analytics/audit?source=dataset")
+    assert res_ds.status_code == 200
+    data_ds = res_ds.json()
+    assert data_ds["source"] == "dataset"
+    assert data_ds["is_healthy"] is True
+    assert data_ds["recall_score"] == "100.0%"
+    assert data_ds["precision_score"] == "100.0%"
+    assert len(data_ds["detected_anomalies"]) == 6
+
 

@@ -99,3 +99,28 @@ def complete_clock(
     sla_data["is_resolution_breached"] = res_dt > target_dt
     return sla_data
 
+def reset_clock_for_reopen(
+    sla_data: Dict[str, Any],
+    priority: str,
+    reopen_dt_iso: str = None
+) -> Dict[str, Any]:
+    """
+    Restarts SLA clock for a reopened investigation cycle.
+    Clears actual resolution time, resets status to RUNNING,
+    and establishes a new target resolution deadline based on priority.
+    """
+    from src.generator.rules import SLA_TARGET_MAP
+    
+    reopen_dt = datetime.fromisoformat(reopen_dt_iso or datetime.now(timezone.utc).isoformat())
+    target_info = SLA_TARGET_MAP.get(priority, {"response_hours": 24, "resolution_hours": 96})
+    new_target_dt = reopen_dt + timedelta(hours=target_info["resolution_hours"])
+    
+    sla_data["actual_resolution_time"] = None
+    sla_data["target_resolution_time"] = new_target_dt.isoformat()
+    sla_data["clock_status"] = "RUNNING"
+    sla_data["paused_at"] = None
+    sla_data["paused_duration_minutes"] = 0
+    sla_data["is_resolution_breached"] = False
+    return sla_data
+
+

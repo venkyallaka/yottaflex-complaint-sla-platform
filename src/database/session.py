@@ -41,7 +41,11 @@ def get_db():
         db.close()
 
 def init_db_and_seed():
-    """Initializes schema and populates SQLite database from generated JSON seeds if empty."""
+    """Initializes schema and populates SQLite database from generated JSON seeds if empty.
+    
+    Ensures referential integrity by separating valid operational records from 
+    deliberately corrupted anomaly test fixtures, preserving foreign key enforcement.
+    """
     os.makedirs(DATA_DIR, exist_ok=True)
     Base.metadata.create_all(bind=engine)
     
@@ -52,13 +56,15 @@ def init_db_and_seed():
             return
 
         json_dir = os.path.join(DATA_DIR, "json")
+        anomalies_dir = os.path.join(DATA_DIR, "anomalies")
+        os.makedirs(anomalies_dir, exist_ok=True)
+        
         if not os.path.exists(json_dir):
             print("[!] JSON seed directory not found. Skipping auto-seeding.")
             return
 
-        print("[*] Seeding database from JSON files...")
+        print("[*] Seeding operational database from JSON seeds (with strict FK enforcement)...")
         
-        # 1. Master tables
         def load_json(name):
             p = os.path.join(json_dir, f"{name}.json")
             if os.path.exists(p):
@@ -66,58 +72,84 @@ def init_db_and_seed():
                     return json.load(f)
             return []
 
-        categories = [Category(**r) for r in load_json("categories")]
+        # 1. Master tables
+        categories_data = load_json("categories")
+        categories = [Category(**r) for r in categories_data]
+        valid_cat_ids = {c["category_id"] for c in categories_data}
         db.bulk_save_objects(categories)
-        db.commit()
 
-        priority_rules = [PriorityRule(**r) for r in load_json("priority_rules")]
+        priority_rules_data = load_json("priority_rules")
+        priority_rules = [PriorityRule(**r) for r in priority_rules_data]
         db.bulk_save_objects(priority_rules)
-        db.commit()
 
-        products = [Product(**r) for r in load_json("products")]
+        products_data = load_json("products")
+        products = [Product(**r) for r in products_data]
+        valid_prod_ids = {p["product_id"] for p in products_data}
         db.bulk_save_objects(products)
-        db.commit()
 
-        customers = [Customer(**r) for r in load_json("customers")]
+        customers_data = load_json("customers")
+        customers = [Customer(**r) for r in customers_data]
+        valid_cust_ids = {c["customer_id"] for c in customers_data}
         db.bulk_save_objects(customers)
-        db.commit()
 
-        orders = [Order(**r) for r in load_json("orders")]
+        orders_data = load_json("orders")
+        orders = [Order(**r) for r in orders_data if r.get("customer_id") in valid_cust_ids and r.get("product_id") in valid_prod_ids]
+        valid_order_ids = {o.order_id for o in orders}
         db.bulk_save_objects(orders)
-        db.commit()
 
-        complaints = [Complaint(**r) for r in load_json("complaints")]
+        # 2. Complaints: separate valid operational complaints from orphan anomaly test fixtures
+        raw_complaints = load_json("complaints")
+        valid_complaint_dicts = []
+        orphan_complaint_dicts = []
+        
+        for c_dict in raw_complaints:
+            if c_dict.get("customer_id") in valid_cust_ids and c_dict.get("category_id") in valid_cat_ids:
+                valid_complaint_dicts.append(c_dict)
+            else:
+                orphan_complaint_dicts.append(c_dict)
+                
+        if orphan_complaint_dicts:
+            orphan_path = os.path.join(anomalies_dir, "orphan_complaints.json")
+            with open(orphan_path, "w", encoding="utf-8") as f:
+                json.dump(orphan_complaint_dicts, f, indent=2)
+            print(f"[*] Quarantined {len(orphan_complaint_dicts)} deliberate orphan complaint(s) to {orphan_path} to preserve SQLite FK integrity.")
+
+        complaints = [Complaint(**r) for r in valid_complaint_dicts]
+        valid_cmp_ids = {c.complaint_id for c in complaints}
         db.bulk_save_objects(complaints)
-        db.commit()
 
-        messages = [ComplaintMessage(**r) for r in load_json("complaint_messages")]
+        # 3. Dependent transactional / operational child records
+        messages_data = [r for r in load_json("complaint_messages") if r.get("complaint_id") in valid_cmp_ids]
+        messages = [ComplaintMessage(**r) for r in messages_data]
         db.bulk_save_objects(messages)
-        db.commit()
 
-        assignments = [Assignment(**r) for r in load_json("assignments")]
+        assignments_data = [r for r in load_json("assignments") if r.get("complaint_id") in valid_cmp_ids]
+        assignments = [Assignment(**r) for r in assignments_data]
         db.bulk_save_objects(assignments)
-        db.commit()
 
-        slas = [SLAClock(**r) for r in load_json("sla_clocks")]
+        sla_data = [r for r in load_json("sla_clocks") if r.get("complaint_id") in valid_cmp_ids]
+        slas = [SLAClock(**r) for r in sla_data]
         db.bulk_save_objects(slas)
-        db.commit()
 
-        resolutions = [Resolution(**r) for r in load_json("resolutions")]
+        resolutions_data = [r for r in load_json("resolutions") if r.get("complaint_id") in valid_cmp_ids]
+        resolutions = [Resolution(**r) for r in resolutions_data]
         db.bulk_save_objects(resolutions)
-        db.commit()
 
-        surveys = [Survey(**r) for r in load_json("surveys")]
+        surveys_data = [r for r in load_json("surveys") if r.get("complaint_id") in valid_cmp_ids]
+        surveys = [Survey(**r) for r in surveys_data]
         db.bulk_save_objects(surveys)
-        db.commit()
 
-        events = [ComplaintEvent(**r) for r in load_json("complaint_events")]
+        events_data = [r for r in load_json("complaint_events") if r.get("complaint_id") in valid_cmp_ids]
+        events = [ComplaintEvent(**r) for r in events_data]
         db.bulk_save_objects(events)
-        db.commit()
 
-        print("[+] Database initialized and seeded successfully.")
+        # Single atomic commit for entire seeding process
+        db.commit()
+        print("[+] Operational database seeded successfully with 100% referential integrity.")
     except Exception as e:
         db.rollback()
         print(f"[!] Error seeding database: {e}")
+        raise e
     finally:
         db.close()
 

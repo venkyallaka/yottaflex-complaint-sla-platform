@@ -24,7 +24,7 @@ from src.core.priority_matrix import calculate_priority
 from src.core.routing import determine_team_and_agent
 from src.core.sla_engine import (
     initialize_sla_clock, record_first_response,
-    pause_clock, resume_clock, complete_clock
+    pause_clock, resume_clock, complete_clock, reset_clock_for_reopen
 )
 from src.core.event_store import emit_event
 
@@ -269,6 +269,7 @@ def get_complaint_detail(
         },
         "resolution": {
             "resolution_id": c.resolution.resolution_id if c.resolution else None,
+            "version": getattr(c.resolution, "version", 1) if c.resolution else None,
             "resolution_type": c.resolution.resolution_type if c.resolution else None,
             "root_cause": c.resolution.root_cause if c.resolution else None,
             "compensation_amount": c.resolution.compensation_amount if c.resolution else 0.0,
@@ -277,14 +278,42 @@ def get_complaint_detail(
             "approver_id": c.resolution.approver_id if c.resolution else None,
             "resolved_at": c.resolution.resolved_at if c.resolution else None
         } if c.resolution else None,
+        "resolutions_history": [
+            {
+                "resolution_id": r.resolution_id,
+                "version": getattr(r, "version", 1),
+                "resolution_type": r.resolution_type,
+                "root_cause": r.root_cause,
+                "compensation_amount": r.compensation_amount,
+                "requires_approval": r.requires_approval,
+                "approval_status": r.approval_status,
+                "approver_id": r.approver_id,
+                "resolved_at": r.resolved_at,
+                "is_current": getattr(r, "is_current", True)
+            }
+            for r in sorted(c.resolutions, key=lambda x: getattr(x, "version", 1))
+        ] if c.resolutions else [],
         "survey": {
             "survey_id": c.survey.survey_id if c.survey else None,
+            "cycle": getattr(c.survey, "cycle", 1) if c.survey else None,
             "csat_score": c.survey.csat_score if c.survey else None,
             "nps_score": c.survey.nps_score if c.survey else None,
             "effort_score": c.survey.effort_score if c.survey else None,
             "feedback_comments": c.survey.feedback_comments if c.survey else None,
             "submitted_at": c.survey.submitted_at if c.survey else None
         } if c.survey else None,
+        "surveys_history": [
+            {
+                "survey_id": s.survey_id,
+                "cycle": getattr(s, "cycle", 1),
+                "csat_score": s.csat_score,
+                "nps_score": s.nps_score,
+                "effort_score": s.effort_score,
+                "feedback_comments": s.feedback_comments,
+                "submitted_at": s.submitted_at
+            }
+            for s in sorted(c.surveys, key=lambda x: x.submitted_at)
+        ] if c.surveys else [],
         "messages": [
             {
                 "message_id": m.message_id,
@@ -470,26 +499,28 @@ def propose_resolution(
     requires_approval = (payload.compensation_amount > 250.00) or c.is_safety_issue
     approval_status = "PENDING_REVIEW" if requires_approval else "NOT_REQUIRED"
     
-    res = db.query(Resolution).filter(Resolution.complaint_id == complaint_id).first()
-    if not res:
-        res = Resolution(
-            resolution_id=f"RES-{complaint_id}",
-            complaint_id=complaint_id,
-            resolution_type=payload.resolution_type,
-            root_cause=payload.root_cause,
-            compensation_amount=payload.compensation_amount,
-            requires_approval=requires_approval,
-            approval_status=approval_status,
-            resolved_at=now_iso
-        )
-        db.add(res)
-    else:
-        res.resolution_type = payload.resolution_type
-        res.root_cause = payload.root_cause
-        res.compensation_amount = payload.compensation_amount
-        res.requires_approval = requires_approval
-        res.approval_status = approval_status
-        res.resolved_at = now_iso
+    # Query prior resolutions to compute next version and archive previous active ones
+    prior_resolutions = db.query(Resolution).filter(Resolution.complaint_id == complaint_id).order_by(desc(Resolution.version)).all()
+    next_version = (prior_resolutions[0].version + 1) if prior_resolutions else 1
+    
+    for r in prior_resolutions:
+        r.is_current = False
+        
+    res_id = f"RES-{complaint_id}" if next_version == 1 else f"RES-{complaint_id}-v{next_version}"
+    res = Resolution(
+        resolution_id=res_id,
+        complaint_id=complaint_id,
+        version=next_version,
+        resolution_type=payload.resolution_type,
+        root_cause=payload.root_cause,
+        compensation_amount=payload.compensation_amount,
+        requires_approval=requires_approval,
+        approver_id=None,
+        approval_status=approval_status,
+        resolved_at=now_iso,
+        is_current=True
+    )
+    db.add(res)
         
     if requires_approval:
         c.status = "RESOLUTION_PENDING"
@@ -498,16 +529,18 @@ def propose_resolution(
         if c.sla_clock:
             c.sla_clock.clock_status = "COMPLETED"
             c.sla_clock.actual_resolution_time = now_iso
+            c.sla_clock.is_resolution_breached = datetime.fromisoformat(now_iso) > datetime.fromisoformat(c.sla_clock.target_resolution_time)
             
     c.updated_at = now_iso
     db.commit()
     
     emit_event(
         db, complaint_id, "RESOLUTION_PROPOSED", "PROCESS_OWNER", "AGENT_RESOLUTION",
-        {"resolution_type": payload.resolution_type, "requires_approval": requires_approval}
+        {"version": next_version, "resolution_id": res.resolution_id, "resolution_type": payload.resolution_type, "requires_approval": requires_approval, "compensation": payload.compensation_amount}
     )
     return {
         "resolution_id": res.resolution_id,
+        "version": res.version,
         "requires_approval": requires_approval,
         "approval_status": approval_status,
         "complaint_status": c.status
@@ -525,16 +558,19 @@ def approve_resolution(
         raise HTTPException(status_code=404, detail="Complaint or proposed resolution not found.")
         
     now_iso = datetime.now(timezone.utc).isoformat()
+    latest_res = c.resolution
+    
     if payload.approved:
-        c.resolution.approval_status = "APPROVED"
-        c.resolution.approver_id = payload.approver_id
+        latest_res.approval_status = "APPROVED"
+        latest_res.approver_id = payload.approver_id
         c.status = "RESOLVED"
         if c.sla_clock:
             c.sla_clock.clock_status = "COMPLETED"
             c.sla_clock.actual_resolution_time = now_iso
+            c.sla_clock.is_resolution_breached = datetime.fromisoformat(now_iso) > datetime.fromisoformat(c.sla_clock.target_resolution_time)
     else:
-        c.resolution.approval_status = "REJECTED"
-        c.resolution.approver_id = payload.approver_id
+        latest_res.approval_status = "REJECTED"
+        latest_res.approver_id = payload.approver_id
         c.status = "IN_INVESTIGATION"
         
     c.updated_at = now_iso
@@ -543,9 +579,14 @@ def approve_resolution(
     emit_event(
         db, complaint_id, "RESOLUTION_APPROVED" if payload.approved else "RESOLUTION_REJECTED",
         "APPROVER", payload.approver_id,
-        {"approved": payload.approved, "notes": payload.notes}
+        {"version": latest_res.version, "resolution_id": latest_res.resolution_id, "approved": payload.approved, "notes": payload.notes}
     )
-    return {"approval_status": c.resolution.approval_status, "complaint_status": c.status}
+    return {
+        "resolution_id": latest_res.resolution_id,
+        "version": latest_res.version,
+        "approval_status": latest_res.approval_status,
+        "complaint_status": c.status
+    }
 
 @router.post("/{complaint_id}/reopen")
 def reopen_complaint(
@@ -553,7 +594,7 @@ def reopen_complaint(
     payload: ReopenRequest,
     db: Session = Depends(get_db)
 ):
-    """Reopens a resolved or closed complaint, preserving all prior history."""
+    """Reopens a resolved or closed complaint, preserving prior resolution history and restarting SLA lifecycle."""
     c = db.query(Complaint).filter(Complaint.complaint_id == complaint_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Complaint not found.")
@@ -561,19 +602,67 @@ def reopen_complaint(
     if c.status not in ["RESOLVED", "CLOSED"]:
         raise HTTPException(status_code=400, detail="Only RESOLVED or CLOSED complaints can be reopened.")
         
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
     c.status = "REOPENED"
+    c.closed_at = None
     c.updated_at = now_iso
+    
+    prior_sla_data = {}
     if c.sla_clock:
-        c.sla_clock.clock_status = "RUNNING"
+        prior_sla_data = {
+            "previous_target_resolution_time": c.sla_clock.target_resolution_time,
+            "previous_actual_resolution_time": c.sla_clock.actual_resolution_time,
+            "previous_status": c.sla_clock.clock_status,
+            "previous_breached": c.sla_clock.is_resolution_breached
+        }
+        sla_dict = {
+            "target_response_time": c.sla_clock.target_response_time,
+            "actual_response_time": c.sla_clock.actual_response_time,
+            "target_resolution_time": c.sla_clock.target_resolution_time,
+            "actual_resolution_time": c.sla_clock.actual_resolution_time,
+            "clock_status": c.sla_clock.clock_status,
+            "paused_at": c.sla_clock.paused_at,
+            "paused_duration_minutes": c.sla_clock.paused_duration_minutes,
+            "is_response_breached": c.sla_clock.is_response_breached,
+            "is_resolution_breached": c.sla_clock.is_resolution_breached
+        }
+        updated_sla = reset_clock_for_reopen(sla_dict, c.priority, now_iso)
+        c.sla_clock.actual_resolution_time = updated_sla["actual_resolution_time"]
+        c.sla_clock.target_resolution_time = updated_sla["target_resolution_time"]
+        c.sla_clock.clock_status = updated_sla["clock_status"]
+        c.sla_clock.paused_at = updated_sla["paused_at"]
+        c.sla_clock.paused_duration_minutes = updated_sla["paused_duration_minutes"]
+        c.sla_clock.is_resolution_breached = updated_sla["is_resolution_breached"]
         
     db.commit()
     
+    # 1. Emit REOPENED lifecycle event
     emit_event(
         db, complaint_id, "REOPENED", "BUSINESS_REQUESTER", c.customer_id,
-        {"reason": payload.reason}
+        {"reason": payload.reason, "reopened_at": now_iso}
     )
-    return {"complaint_id": complaint_id, "status": "REOPENED"}
+    # 2. Emit SLA_RESET event preserving prior SLA metrics
+    if prior_sla_data:
+        emit_event(
+            db, complaint_id, "SLA_RESET", "SYSTEM", "SLA_ENGINE",
+            {
+                **prior_sla_data,
+                "new_target_resolution_time": c.sla_clock.target_resolution_time,
+                "clock_status": "RUNNING"
+            }
+        )
+    # 3. Emit transition to IN_INVESTIGATION for reopened processing
+    emit_event(
+        db, complaint_id, "IN_INVESTIGATION", "SYSTEM", "WORKFLOW_ENGINE",
+        {"stage": "reopened_reinvestigation", "reopened_at": now_iso}
+    )
+    
+    return {
+        "complaint_id": complaint_id,
+        "status": "REOPENED",
+        "new_target_resolution_time": c.sla_clock.target_resolution_time if c.sla_clock else None
+    }
 
 @router.post("/{complaint_id}/survey")
 def submit_survey(
@@ -581,7 +670,7 @@ def submit_survey(
     payload: SurveySubmitRequest,
     db: Session = Depends(get_db)
 ):
-    """Records post-resolution customer experience survey."""
+    """Records post-resolution customer experience survey supporting repeated lifecycle cycles."""
     c = db.query(Complaint).filter(Complaint.complaint_id == complaint_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Complaint not found.")
@@ -593,13 +682,22 @@ def submit_survey(
         )
         
     now_iso = datetime.now(timezone.utc).isoformat()
-    existing_srv = db.query(Survey).filter(Survey.complaint_id == complaint_id).first()
-    if existing_srv:
-        raise HTTPException(status_code=400, detail="Survey already submitted for this complaint.")
-        
+    existing_surveys = db.query(Survey).filter(Survey.complaint_id == complaint_id).order_by(desc(Survey.submitted_at)).all()
+    
+    latest_res = c.resolution
+    if latest_res and existing_surveys:
+        latest_res_dt = datetime.fromisoformat(latest_res.resolved_at)
+        latest_srv_dt = datetime.fromisoformat(existing_surveys[0].submitted_at)
+        if latest_srv_dt >= latest_res_dt:
+            raise HTTPException(status_code=400, detail="Survey already submitted for the current resolution cycle.")
+            
+    cycle_num = len(existing_surveys) + 1
+    survey_id = f"SRV-{complaint_id}" if cycle_num == 1 else f"SRV-{complaint_id}-{cycle_num:02d}"
+    
     survey = Survey(
-        survey_id=f"SRV-{complaint_id}",
+        survey_id=survey_id,
         complaint_id=complaint_id,
+        cycle=cycle_num,
         csat_score=payload.csat_score,
         nps_score=payload.nps_score,
         effort_score=payload.effort_score,
@@ -616,7 +714,7 @@ def submit_survey(
     
     emit_event(
         db, complaint_id, "CLOSED", "BUSINESS_REQUESTER", c.customer_id,
-        {"survey_id": survey.survey_id, "csat": payload.csat_score}
+        {"survey_id": survey.survey_id, "cycle": cycle_num, "csat": payload.csat_score}
     )
-    return {"survey_id": survey.survey_id, "status": "Survey submitted; complaint closed."}
+    return {"survey_id": survey.survey_id, "cycle": cycle_num, "status": "Survey submitted; complaint closed."}
 
