@@ -201,11 +201,14 @@ The embedded dashboard serves all 5 primary actors:
 ```text
 yottaflex/
 ├── .gitignore
+├── alembic.ini                         <-- Alembic database migration configuration
+├── alembic/                            <-- Schema migration versions (0001 baseline, 0002 cycles/versioning)
 ├── README.md                           <-- Master setup and architecture guide
 ├── requirements.txt                    <-- Python dependencies
 ├── data/
 │   ├── csv/                            <-- Generated CSV files (12 tables)
 │   ├── json/                           <-- Generated JSON files (12 tables)
+│   ├── anomalies/                      <-- Isolated corrupted fixtures for anomaly tests
 │   ├── sql/seed_data.sql               <-- Multi-table SQL seed dump
 │   ├── ground_truth.json               <-- Isolated ground truth labels & anomalies
 │   ├── ground_truth.csv                <-- CSV format ground truth
@@ -224,17 +227,17 @@ yottaflex/
 │   ├── core/
 │   │   ├── classifier.py               <-- NLP text & sentiment classifier
 │   │   ├── priority_matrix.py          <-- Priority calculation engine
-│   │   ├── sla_engine.py               <-- SLA clock state machine
+│   │   ├── sla_engine.py               <-- SLA clock state machine & cycle tracking
 │   │   ├── routing.py                  <-- Specialized team routing
 │   │   └── event_store.py              <-- Append-only audit logger
 │   ├── database/
 │   │   ├── models.py                   <-- SQLAlchemy ORM entity models
-│   │   └── session.py                  <-- Database session & JSON seed loader
+│   │   └── session.py                  <-- Database session, Alembic runner & seed loader
 │   ├── api/
 │   │   ├── main.py                     <-- FastAPI application entrypoint
 │   │   ├── schemas.py                  <-- Pydantic request/response schemas
 │   │   └── routes/
-│   │       ├── complaints.py           <-- Complaint lifecycle endpoints
+│   │       ├── complaints.py           <-- Complaint lifecycle endpoints & state guards
 │   │       └── analytics.py            <-- Metrics & audit endpoints
 │   └── static/                         <-- Interactive Web Dashboard
 │       ├── index.html
@@ -242,12 +245,13 @@ yottaflex/
 │       └── app.js
 ├── scripts/
 │   ├── run_generator.py                <-- Data generator CLI
-│   ├── validate_dataset.py             <-- Step 8 validation suite
-│   └── verify_reproducibility.py       <-- Step 10 reproducibility check
+│   ├── validate_dataset.py             <-- Step 8 validation suite (39/39 checks)
+│   └── verify_reproducibility.py       <-- Step 10 reproducibility check (byte-level)
 └── tests/
     ├── test_priority_rules.py          <-- Priority matrix unit tests
     ├── test_sla_engine.py              <-- SLA clock unit tests
-    ├── test_api_workflow.py            <-- End-to-end API integration tests
+    ├── test_api_workflow.py            <-- End-to-end API lifecycle & negative scenario tests
+    ├── test_migration.py               <-- Alembic schema upgrade & column preservation test
     └── test_validation.py              <-- Dataset integrity test
 ```
 

@@ -40,6 +40,21 @@ def get_db():
     finally:
         db.close()
 
+def apply_migrations():
+    """Applies pending Alembic database migrations to upgrade existing databases to latest schema."""
+    try:
+        import alembic.config
+        import alembic.command
+        
+        alembic_ini_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "alembic.ini"))
+        if os.path.exists(alembic_ini_path):
+            alembic_cfg = alembic.config.Config(alembic_ini_path)
+            alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL)
+            alembic.command.upgrade(alembic_cfg, "head")
+            print("[+] Applied Alembic migrations to head revision.")
+    except Exception as e:
+        print(f"[*] Database schema migration notice: {e}")
+
 def init_db_and_seed():
     """Initializes schema and populates SQLite database from generated JSON seeds if empty.
     
@@ -47,6 +62,7 @@ def init_db_and_seed():
     deliberately corrupted anomaly test fixtures, preserving foreign key enforcement.
     """
     os.makedirs(DATA_DIR, exist_ok=True)
+    apply_migrations()
     Base.metadata.create_all(bind=engine)
     
     db: Session = SessionLocal()
@@ -128,14 +144,22 @@ def init_db_and_seed():
         db.bulk_save_objects(assignments)
 
         sla_data = [r for r in load_json("sla_clocks") if r.get("complaint_id") in valid_cmp_ids]
+        for r in sla_data:
+            r.setdefault("cycle", 1)
+            r.setdefault("is_current", True)
         slas = [SLAClock(**r) for r in sla_data]
         db.bulk_save_objects(slas)
 
         resolutions_data = [r for r in load_json("resolutions") if r.get("complaint_id") in valid_cmp_ids]
+        for r in resolutions_data:
+            r.setdefault("version", 1)
+            r.setdefault("is_current", True)
         resolutions = [Resolution(**r) for r in resolutions_data]
         db.bulk_save_objects(resolutions)
 
         surveys_data = [r for r in load_json("surveys") if r.get("complaint_id") in valid_cmp_ids]
+        for r in surveys_data:
+            r.setdefault("cycle", 1)
         surveys = [Survey(**r) for r in surveys_data]
         db.bulk_save_objects(surveys)
 

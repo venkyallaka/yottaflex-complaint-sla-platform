@@ -93,10 +93,20 @@ class Complaint(Base):
     parent_complaint = relationship("Complaint", remote_side=[complaint_id], backref="child_complaints")
     messages = relationship("ComplaintMessage", back_populates="complaint", cascade="all, delete-orphan")
     assignments = relationship("Assignment", back_populates="complaint", cascade="all, delete-orphan")
-    sla_clock = relationship("SLAClock", back_populates="complaint", uselist=False, cascade="all, delete-orphan")
+    sla_clocks = relationship("SLAClock", back_populates="complaint", order_by="desc(SLAClock.cycle)", cascade="all, delete-orphan")
     resolutions = relationship("Resolution", back_populates="complaint", order_by="desc(Resolution.version)", cascade="all, delete-orphan")
     surveys = relationship("Survey", back_populates="complaint", order_by="desc(Survey.submitted_at)", cascade="all, delete-orphan")
     events = relationship("ComplaintEvent", back_populates="complaint", cascade="all, delete-orphan")
+
+    @property
+    def sla_clock(self):
+        """Returns the active or most recent cycle SLA clock for backwards compatibility."""
+        if not self.sla_clocks:
+            return None
+        for s in self.sla_clocks:
+            if getattr(s, "is_current", True):
+                return s
+        return self.sla_clocks[0]
 
     @property
     def resolution(self):
@@ -140,8 +150,9 @@ class Assignment(Base):
 
 class SLAClock(Base):
     __tablename__ = "sla_clocks"
-    sla_id = Column(String(36), primary_key=True, index=True)
-    complaint_id = Column(String(32), ForeignKey("complaints.complaint_id"), unique=True, nullable=False)
+    sla_id = Column(String(48), primary_key=True, index=True)
+    complaint_id = Column(String(32), ForeignKey("complaints.complaint_id"), index=True, nullable=False)
+    cycle = Column(Integer, nullable=False, default=1)
     target_response_time = Column(String(32), nullable=False)
     actual_response_time = Column(String(32), nullable=True)
     target_resolution_time = Column(String(32), nullable=False)
@@ -151,8 +162,9 @@ class SLAClock(Base):
     paused_duration_minutes = Column(Integer, nullable=False, default=0)
     is_response_breached = Column(Boolean, nullable=False, default=False)
     is_resolution_breached = Column(Boolean, nullable=False, default=False)
+    is_current = Column(Boolean, nullable=False, default=True)
 
-    complaint = relationship("Complaint", back_populates="sla_clock")
+    complaint = relationship("Complaint", back_populates="sla_clocks")
 
 class Resolution(Base):
     __tablename__ = "resolutions"

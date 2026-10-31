@@ -21,6 +21,7 @@ def initialize_sla_clock(
     return {
         "sla_id": f"SLA-{complaint_id}",
         "complaint_id": complaint_id,
+        "cycle": 1,
         "target_response_time": target_resp_dt.isoformat(),
         "actual_response_time": None,
         "target_resolution_time": target_resol_dt.isoformat(),
@@ -29,7 +30,8 @@ def initialize_sla_clock(
         "paused_at": None,
         "paused_duration_minutes": 0,
         "is_response_breached": False,
-        "is_resolution_breached": False
+        "is_resolution_breached": False,
+        "is_current": True
     }
 
 def record_first_response(
@@ -98,6 +100,40 @@ def complete_clock(
     sla_data["clock_status"] = "COMPLETED"
     sla_data["is_resolution_breached"] = res_dt > target_dt
     return sla_data
+
+def create_reopened_sla_clock(
+    complaint_id: str,
+    priority: str,
+    cycle: int,
+    reopen_dt_iso: str
+) -> Dict[str, Any]:
+    """
+    Creates an independent SLA clock record for a reopened lifecycle investigation cycle.
+    Resets response targets and resolution deadlines for the new cycle, maintaining complete cycle history.
+    """
+    from src.generator.rules import SLA_TARGET_MAP
+    
+    target_info = SLA_TARGET_MAP.get(priority, {"response_hours": 24, "resolution_hours": 96})
+    reopen_dt = datetime.fromisoformat(reopen_dt_iso)
+    
+    target_resp_dt = reopen_dt + timedelta(hours=target_info["response_hours"])
+    target_resol_dt = reopen_dt + timedelta(hours=target_info["resolution_hours"])
+    
+    return {
+        "sla_id": f"SLA-{complaint_id}-c{cycle:02d}",
+        "complaint_id": complaint_id,
+        "cycle": cycle,
+        "target_response_time": target_resp_dt.isoformat(),
+        "actual_response_time": None,
+        "target_resolution_time": target_resol_dt.isoformat(),
+        "actual_resolution_time": None,
+        "clock_status": "RUNNING",
+        "paused_at": None,
+        "paused_duration_minutes": 0,
+        "is_response_breached": False,
+        "is_resolution_breached": False,
+        "is_current": True
+    }
 
 def reset_clock_for_reopen(
     sla_data: Dict[str, Any],

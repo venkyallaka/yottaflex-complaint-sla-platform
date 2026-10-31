@@ -98,6 +98,14 @@ def main():
         if not gt_match:
             all_matched = False
         print(f"{'ground_truth.json':<40} | {'-':<11} | {'-':<11} | {('IDENTICAL [PASS]' if gt_match else 'MISMATCH [FAIL]'):<14}")
+
+        # 5. Compare Anomaly Fixtures
+        anom1 = os.path.join(temp_dir_1, "anomalies", "orphan_complaints.json")
+        anom2 = os.path.join(temp_dir_2, "anomalies", "orphan_complaints.json")
+        anom_match = (hash_file(anom1) == hash_file(anom2))
+        if not anom_match:
+            all_matched = False
+        print(f"{'anomalies/orphan_complaints.json':<40} | {'-':<11} | {'-':<11} | {('IDENTICAL [PASS]' if anom_match else 'MISMATCH [FAIL]'):<14}")
             
         print("=" * 75)
         if all_matched:

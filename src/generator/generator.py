@@ -554,6 +554,7 @@ class DatasetGenerator:
             self.sla_clocks.append({
                 "sla_id": f"SLA-{cid}",
                 "complaint_id": cid,
+                "cycle": 1,
                 "target_response_time": target_resp_dt.isoformat(),
                 "actual_response_time": actual_resp_dt.isoformat(),
                 "target_resolution_time": adjusted_target_resol_dt.isoformat(),
@@ -562,7 +563,8 @@ class DatasetGenerator:
                 "paused_at": paused_at_iso,
                 "paused_duration_minutes": paused_mins,
                 "is_response_breached": is_resp_breached,
-                "is_resolution_breached": is_resol_breached
+                "is_resolution_breached": is_resol_breached,
+                "is_current": True
             })
             
             # Resolution & Approvals
@@ -655,15 +657,30 @@ class DatasetGenerator:
                         "created_at": reinvestigate_dt.isoformat()
                     })
                     
-                    # Update reopened SLA clock target
+                    # Complete and archive Cycle 1 SLA Clock
+                    sla_record_c1 = self.sla_clocks[-1]
+                    sla_record_c1["clock_status"] = "COMPLETED"
+                    sla_record_c1["actual_resolution_time"] = initial_resol_dt.isoformat()
+                    sla_record_c1["is_current"] = False
+                    
+                    # Create distinct Cycle 2 SLA Clock for reopened investigation
+                    target_reopen_resp_dt = reopen_dt + timedelta(hours=resp_hours)
                     target_reopen_resol_dt = reopen_dt + timedelta(hours=resol_hours)
-                    sla_record = self.sla_clocks[-1]
-                    sla_record["clock_status"] = "RUNNING"
-                    sla_record["actual_resolution_time"] = None
-                    sla_record["target_resolution_time"] = target_reopen_resol_dt.isoformat()
-                    sla_record["paused_at"] = None
-                    sla_record["paused_duration_minutes"] = 0
-                    sla_record["is_resolution_breached"] = False
+                    self.sla_clocks.append({
+                        "sla_id": f"SLA-{cid}-c02",
+                        "complaint_id": cid,
+                        "cycle": 2,
+                        "target_response_time": target_reopen_resp_dt.isoformat(),
+                        "actual_response_time": None,
+                        "target_resolution_time": target_reopen_resol_dt.isoformat(),
+                        "actual_resolution_time": None,
+                        "clock_status": "RUNNING",
+                        "paused_at": None,
+                        "paused_duration_minutes": 0,
+                        "is_response_breached": False,
+                        "is_resolution_breached": False,
+                        "is_current": True
+                    })
                 
                 # Survey (only for resolved/closed complaints with an actual resolution timestamp)
                 if status in ["RESOLVED", "CLOSED"] and actual_resol_dt and self.rng.random() < 0.75:
@@ -920,6 +937,8 @@ class DatasetGenerator:
             anomalies_path = os.path.join(anomalies_dir, "orphan_complaints.json")
             with open(anomalies_path, "w", encoding="utf-8") as f:
                 json.dump(self.anomaly_fixtures, f, indent=2)
+            with open(anomalies_path, "rb") as f:
+                manifest["file_checksums"]["anomalies/orphan_complaints.json"] = hashlib.sha256(f.read()).hexdigest()
 
         manifest_path = os.path.join(output_dir, "manifest.json")
         with open(manifest_path, "w", encoding="utf-8") as f:

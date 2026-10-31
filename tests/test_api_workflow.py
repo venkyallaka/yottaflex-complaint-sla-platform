@@ -48,6 +48,23 @@ def test_api_negative_scenarios():
     })
     assert res_missing_cust.status_code == 404
 
+    # Negative test 5: Duplicate pause requests rejected with 400
+    # First transition to IN_INVESTIGATION by sending agent response
+    client.post(f"/api/v1/complaints/{c_id}/messages", json={
+        "sender_type": "AGENT", "sender_id": "AGT-0001", "channel": "EMAIL", "message_body": "Investigating delay"
+    })
+    res_pause1 = client.post(f"/api/v1/complaints/{c_id}/sla/pause", json={"reason": "Customer input required"})
+    assert res_pause1.status_code == 200
+    res_pause2 = client.post(f"/api/v1/complaints/{c_id}/sla/pause", json={"reason": "Customer input required again"})
+    assert res_pause2.status_code == 400
+    assert "already PAUSED" in res_pause2.json()["detail"]
+
+    # Negative test 6: Approving resolution when complaint is not RESOLUTION_PENDING fails with 400
+    res_invalid_appr = client.post(f"/api/v1/complaints/{c_id}/resolution/approve", json={
+        "approver_id": "APP-0001", "approved": True
+    })
+    assert res_invalid_appr.status_code in [400, 404]
+
 def test_end_to_end_complaint_lifecycle():
     # 1. Ingest complaint
     create_payload = {
@@ -136,6 +153,11 @@ def test_end_to_end_complaint_lifecycle():
     assert res.json()["approval_status"] == "APPROVED"
     assert res.json()["complaint_status"] == "RESOLVED"
 
+    # Enforce lifecycle invariant: duplicate approval decision on already resolved complaint must fail
+    res_dup_appr = client.post(f"/api/v1/complaints/{complaint_id}/resolution/approve", json=appr_payload)
+    assert res_dup_appr.status_code == 400
+    assert "Lifecycle violation" in res_dup_appr.json()["detail"]
+
     # 8. Post-resolution CSAT survey
     survey_payload = {
         "csat_score": 5,
@@ -156,11 +178,18 @@ def test_end_to_end_complaint_lifecycle():
     assert res.json()["status"] == "REOPENED"
     assert "new_target_resolution_time" in res.json()
 
-    # Verify SLA clock was reset for reopened investigation cycle
+    # Verify SLA clock was reset for reopened investigation cycle with cycle tracking
     detail_reopened = client.get(f"/api/v1/complaints/{complaint_id}").json()
     assert detail_reopened["complaint"]["status"] == "REOPENED"
     assert detail_reopened["sla_clock"]["clock_status"] == "RUNNING"
     assert detail_reopened["sla_clock"]["actual_resolution_time"] is None
+    assert detail_reopened["sla_clock"]["cycle"] == 2
+    assert len(detail_reopened["sla_clocks_history"]) == 2
+    assert detail_reopened["sla_clocks_history"][0]["cycle"] == 1
+    assert detail_reopened["sla_clocks_history"][0]["clock_status"] == "COMPLETED"
+    assert detail_reopened["sla_clocks_history"][1]["cycle"] == 2
+    assert detail_reopened["sla_clocks_history"][1]["clock_status"] == "RUNNING"
+    assert detail_reopened["sla_clocks_history"][1]["actual_response_time"] is None
     event_types = [e["event_type"] for e in detail_reopened["events"]]
     assert "REOPENED" in event_types
     assert "SLA_RESET" in event_types

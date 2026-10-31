@@ -24,7 +24,8 @@ from src.core.priority_matrix import calculate_priority
 from src.core.routing import determine_team_and_agent
 from src.core.sla_engine import (
     initialize_sla_clock, record_first_response,
-    pause_clock, resume_clock, complete_clock, reset_clock_for_reopen
+    pause_clock, resume_clock, complete_clock, reset_clock_for_reopen,
+    create_reopened_sla_clock
 )
 from src.core.event_store import emit_event
 
@@ -258,6 +259,8 @@ def get_complaint_detail(
             "is_vulnerable": c.customer.is_vulnerable if c.customer else False
         },
         "sla_clock": {
+            "sla_id": c.sla_clock.sla_id if c.sla_clock else None,
+            "cycle": getattr(c.sla_clock, "cycle", 1) if c.sla_clock else 1,
             "clock_status": c.sla_clock.clock_status if c.sla_clock else "NONE",
             "target_response_time": c.sla_clock.target_response_time if c.sla_clock else None,
             "actual_response_time": c.sla_clock.actual_response_time if c.sla_clock else None,
@@ -267,6 +270,22 @@ def get_complaint_detail(
             "is_response_breached": c.sla_clock.is_response_breached if c.sla_clock else False,
             "is_resolution_breached": c.sla_clock.is_resolution_breached if c.sla_clock else False
         },
+        "sla_clocks_history": [
+            {
+                "sla_id": s.sla_id,
+                "cycle": getattr(s, "cycle", 1),
+                "clock_status": s.clock_status,
+                "target_response_time": s.target_response_time,
+                "actual_response_time": s.actual_response_time,
+                "target_resolution_time": s.target_resolution_time,
+                "actual_resolution_time": s.actual_resolution_time,
+                "paused_duration_minutes": s.paused_duration_minutes,
+                "is_response_breached": s.is_response_breached,
+                "is_resolution_breached": s.is_resolution_breached,
+                "is_current": getattr(s, "is_current", True)
+            }
+            for s in sorted(c.sla_clocks, key=lambda x: getattr(x, "cycle", 1))
+        ] if c.sla_clocks else [],
         "resolution": {
             "resolution_id": c.resolution.resolution_id if c.resolution else None,
             "version": getattr(c.resolution, "version", 1) if c.resolution else None,
@@ -418,6 +437,13 @@ def pause_sla(
     if not c or not c.sla_clock:
         raise HTTPException(status_code=404, detail="Complaint or SLA clock not found.")
         
+    # Prevent duplicate pause requests that could overwrite paused_at timestamp
+    if c.status == "PENDING_CUSTOMER" or c.sla_clock.clock_status == "PAUSED":
+        raise HTTPException(status_code=400, detail="Invalid State: SLA clock is already PAUSED.")
+        
+    if c.status != "IN_INVESTIGATION":
+        raise HTTPException(status_code=400, detail=f"Invalid State: SLA clock can only be PAUSED from IN_INVESTIGATION state (current status: {c.status}).")
+        
     now_iso = datetime.now(timezone.utc).isoformat()
     c.status = "PENDING_CUSTOMER"
     
@@ -560,6 +586,18 @@ def approve_resolution(
     now_iso = datetime.now(timezone.utc).isoformat()
     latest_res = c.resolution
     
+    # Enforce strict lifecycle invariants
+    if c.status != "RESOLUTION_PENDING":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Lifecycle violation: Complaint must be in RESOLUTION_PENDING state to review approval (current status: {c.status})."
+        )
+    if not latest_res.requires_approval or latest_res.approval_status != "PENDING_REVIEW":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Lifecycle violation: Resolution is not awaiting review (current approval status: {latest_res.approval_status})."
+        )
+    
     if payload.approved:
         latest_res.approval_status = "APPROVED"
         latest_res.approver_id = payload.approver_id
@@ -594,7 +632,7 @@ def reopen_complaint(
     payload: ReopenRequest,
     db: Session = Depends(get_db)
 ):
-    """Reopens a resolved or closed complaint, preserving prior resolution history and restarting SLA lifecycle."""
+    """Reopens a resolved or closed complaint, preserving prior resolution history and establishing a new SLA cycle."""
     c = db.query(Complaint).filter(Complaint.complaint_id == complaint_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Complaint not found.")
@@ -608,60 +646,63 @@ def reopen_complaint(
     c.closed_at = None
     c.updated_at = now_iso
     
+    # Cycle-level SLA tracking: archive prior cycle clocks and start fresh cycle
+    existing_clocks = db.query(SLAClock).filter(SLAClock.complaint_id == complaint_id).order_by(desc(SLAClock.cycle)).all()
     prior_sla_data = {}
-    if c.sla_clock:
+    if existing_clocks:
+        current_clock = existing_clocks[0]
         prior_sla_data = {
-            "previous_target_resolution_time": c.sla_clock.target_resolution_time,
-            "previous_actual_resolution_time": c.sla_clock.actual_resolution_time,
-            "previous_status": c.sla_clock.clock_status,
-            "previous_breached": c.sla_clock.is_resolution_breached
+            "prior_cycle": current_clock.cycle,
+            "previous_target_response_time": current_clock.target_response_time,
+            "previous_actual_response_time": current_clock.actual_response_time,
+            "previous_response_breached": current_clock.is_response_breached,
+            "previous_target_resolution_time": current_clock.target_resolution_time,
+            "previous_actual_resolution_time": current_clock.actual_resolution_time,
+            "previous_resolution_breached": current_clock.is_resolution_breached,
+            "previous_status": current_clock.clock_status
         }
-        sla_dict = {
-            "target_response_time": c.sla_clock.target_response_time,
-            "actual_response_time": c.sla_clock.actual_response_time,
-            "target_resolution_time": c.sla_clock.target_resolution_time,
-            "actual_resolution_time": c.sla_clock.actual_resolution_time,
-            "clock_status": c.sla_clock.clock_status,
-            "paused_at": c.sla_clock.paused_at,
-            "paused_duration_minutes": c.sla_clock.paused_duration_minutes,
-            "is_response_breached": c.sla_clock.is_response_breached,
-            "is_resolution_breached": c.sla_clock.is_resolution_breached
-        }
-        updated_sla = reset_clock_for_reopen(sla_dict, c.priority, now_iso)
-        c.sla_clock.actual_resolution_time = updated_sla["actual_resolution_time"]
-        c.sla_clock.target_resolution_time = updated_sla["target_resolution_time"]
-        c.sla_clock.clock_status = updated_sla["clock_status"]
-        c.sla_clock.paused_at = updated_sla["paused_at"]
-        c.sla_clock.paused_duration_minutes = updated_sla["paused_duration_minutes"]
-        c.sla_clock.is_resolution_breached = updated_sla["is_resolution_breached"]
+        for old_c in existing_clocks:
+            old_c.is_current = False
+            
+        next_cycle = current_clock.cycle + 1
+    else:
+        next_cycle = 2
         
+    new_clock_dict = create_reopened_sla_clock(complaint_id, c.priority, next_cycle, now_iso)
+    new_clock = SLAClock(**new_clock_dict)
+    db.add(new_clock)
     db.commit()
     
     # 1. Emit REOPENED lifecycle event
     emit_event(
         db, complaint_id, "REOPENED", "BUSINESS_REQUESTER", c.customer_id,
-        {"reason": payload.reason, "reopened_at": now_iso}
+        {"reason": payload.reason, "reopened_at": now_iso, "cycle": next_cycle}
     )
-    # 2. Emit SLA_RESET event preserving prior SLA metrics
-    if prior_sla_data:
-        emit_event(
-            db, complaint_id, "SLA_RESET", "SYSTEM", "SLA_ENGINE",
-            {
-                **prior_sla_data,
-                "new_target_resolution_time": c.sla_clock.target_resolution_time,
-                "clock_status": "RUNNING"
-            }
-        )
+    # 2. Emit SLA_RESET event preserving prior cycle metrics and detailing new cycle
+    emit_event(
+        db, complaint_id, "SLA_RESET", "SYSTEM", "SLA_ENGINE",
+        {
+            **prior_sla_data,
+            "new_cycle": next_cycle,
+            "new_sla_id": new_clock.sla_id,
+            "new_target_response_time": new_clock.target_response_time,
+            "new_target_resolution_time": new_clock.target_resolution_time,
+            "clock_status": "RUNNING"
+        }
+    )
     # 3. Emit transition to IN_INVESTIGATION for reopened processing
     emit_event(
         db, complaint_id, "IN_INVESTIGATION", "SYSTEM", "WORKFLOW_ENGINE",
-        {"stage": "reopened_reinvestigation", "reopened_at": now_iso}
+        {"stage": "reopened_reinvestigation", "reopened_at": now_iso, "cycle": next_cycle}
     )
     
     return {
         "complaint_id": complaint_id,
         "status": "REOPENED",
-        "new_target_resolution_time": c.sla_clock.target_resolution_time if c.sla_clock else None
+        "cycle": next_cycle,
+        "new_sla_id": new_clock.sla_id,
+        "new_target_response_time": new_clock.target_response_time,
+        "new_target_resolution_time": new_clock.target_resolution_time
     }
 
 @router.post("/{complaint_id}/survey")

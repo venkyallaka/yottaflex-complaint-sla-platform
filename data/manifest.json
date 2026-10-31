@@ -1,7 +1,7 @@
 {
   "seed": 20261022,
   "scale": 1.0,
-  "generated_at": "2026-10-31T05:05:55.511810+00:00",
+  "generated_at": "2026-10-31T06:06:56.252918+00:00",
   "table_counts": {
     "customers": 5000,
     "products": 50,
@@ -11,7 +11,7 @@
     "complaints": 2000,
     "complaint_messages": 6000,
     "assignments": 2000,
-    "sla_clocks": 2000,
+    "sla_clocks": 2048,
     "resolutions": 1672,
     "surveys": 1074,
     "complaint_events": 5816
@@ -25,7 +25,7 @@
     "csv/complaints.csv": "b3f2dc3dbc185e53751dc7ae21318fff002bb6f1c2a0fdd3c517d0e367b198d1",
     "csv/complaint_messages.csv": "34cdecf63e42057fe63735f3f4e528c0e96cbd37422c23de8d0cdaf9be3365be",
     "csv/assignments.csv": "9a6e894fff65bb426aba04cd9d963c4557e3efc32897d164619b8ce497c89863",
-    "csv/sla_clocks.csv": "da1849b6d9c2c2b94c3ba0cf95a1b51558c70f507e1a8a4e4ec10b83451b65dd",
+    "csv/sla_clocks.csv": "1fecb0ebf78faf863eb1dbf64fe49cdcae3f244c8b7cca0457509eaa44b8b3ab",
     "csv/resolutions.csv": "53a943287e5a67b1924862ac81e38e1ae4cc8d6f4ee44c7c5b5e0c6052f5f58d",
     "csv/surveys.csv": "d19341a11adcab61ffb2a1c04b6e9d0cb5d4c5daca2a591d149d89eca995dd9c",
     "csv/complaint_events.csv": "555a2522e6e0304f10a6725e9acf1d7ac07db7477d06e45fb7061e5bd3aab0d8",
@@ -37,10 +37,11 @@
     "json/complaints.json": "0b40c3c49aa4e8f6c78955a6be2904fa43095714b2e308fb30a3508d40e091ef",
     "json/complaint_messages.json": "25028ec349a5fbc5b526df5f83b69ef326d1e1cf67fe454343a8bb94a59114a8",
     "json/assignments.json": "ad725571de7b450b793d20b9033707129e5fd989136a25f877c970eb7549bd93",
-    "json/sla_clocks.json": "975aabf4271c180af5e30403af47b5a46463df9732db0247f66019003fcdc8fb",
+    "json/sla_clocks.json": "64403d1b7c4e0f064d33ab10ba6f2bbd753748bb42d50a55c056c4f6bc1bcb95",
     "json/resolutions.json": "9a90842a54c1534a94f0aa56a9a4988eac2f088e869340239e9b7627edab9e0c",
     "json/surveys.json": "d496a63de90f9139c43d1f0825f3eb887f8123a960c547694b3540716fb93cc5",
     "json/complaint_events.json": "856306ed108d021516d858cc845e3a07f0422cb1725d8d4959b817c3c3dd9675",
-    "sql/seed_data.sql": "d7f423efa147796c36c60caa1e34ccb3d46cb63b724481ba81a3b684a4f1f3eb"
+    "sql/seed_data.sql": "6974701df13ce6da9d78ecd4dd30d993079ef9e1b54b432494b6aa692aa236ab",
+    "anomalies/orphan_complaints.json": "f66c8d0e7738ad3cf8e544d408ba4aa02361211e3c187a923a87e46a9fae3271"
   }
 }

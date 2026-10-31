@@ -390,7 +390,7 @@ class ValidationSuite:
             cid = rc["complaint_id"]
             has_res = any(r["complaint_id"] == cid for r in self.resolutions)
             has_reopen_event = any(e["complaint_id"] == cid and e["event_type"] == "REOPENED" for e in self.events)
-            sla_match = next((s for s in self.sla_clocks if s["complaint_id"] == cid), None)
+            sla_match = next((s for s in self.sla_clocks if s["complaint_id"] == cid and s.get("is_current", True)), None)
             clock_ok = sla_match and sla_match["clock_status"] == "RUNNING" and sla_match["actual_resolution_time"] is None
             if not (has_res and has_reopen_event and clock_ok):
                 reopened_valid = False
