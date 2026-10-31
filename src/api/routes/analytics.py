@@ -62,20 +62,22 @@ def get_operational_metrics(db: Session = Depends(get_db)):
         detractors = sum(1 for s in surveys if s.nps_score <= 6)
         nps_score = round(((promoters - detractors) / len(surveys)) * 100, 1)
         
-    # MTTR Calculation (hours)
+    # MTTR Calculation (hours): correctly excludes paused customer wait periods across all completed resolutions
     resolutions = db.query(Resolution).all()
     mttr_hours = 0.0
     if resolutions:
-        # Sample average MTTR
         durations = []
-        for r in resolutions[:500]:
+        for r in resolutions:
             c = r.complaint
-            if c:
+            if c and r.approval_status != "PENDING_REVIEW":
                 t_c = datetime.fromisoformat(c.created_at)
                 t_r = datetime.fromisoformat(r.resolved_at)
-                delta_h = (t_r - t_c).total_seconds() / 3600.0
-                if delta_h > 0:
-                    durations.append(delta_h)
+                paused_mins = c.sla_clock.paused_duration_minutes if c.sla_clock else 0
+                gross_seconds = (t_r - t_c).total_seconds()
+                # Exclude authorized customer wait state
+                net_seconds = gross_seconds - (paused_mins * 60)
+                if net_seconds > 0:
+                    durations.append(net_seconds / 3600.0)
         if durations:
             mttr_hours = round(sum(durations) / len(durations), 1)
 
@@ -100,12 +102,25 @@ def run_integrity_audit():
     """Executes live dataset validation suite and returns anomaly scorecard."""
     suite = ValidationSuite()
     is_valid = suite.run_all()
+    
+    gt_anomalies = suite.ground_truth.get("anomalies", [])
+    expected_count = len(gt_anomalies)
+    detected_count = len(suite.detected_anomalies)
+    
+    # Calculate true precision and recall
+    true_positives = sum(
+        1 for a in gt_anomalies 
+        if any(d["code"] == a["anomaly_code"] and d["entity_id"] == a["entity_id"] for d in suite.detected_anomalies)
+    )
+    recall = round((true_positives / expected_count * 100), 1) if expected_count > 0 else 100.0
+    precision = round((true_positives / detected_count * 100), 1) if detected_count > 0 else 100.0
+
     return {
         "is_healthy": is_valid,
         "passed_checks": f"{suite.passed_checks}/{suite.total_checks}",
         "detected_anomalies": suite.detected_anomalies,
-        "ground_truth_anomalies": suite.ground_truth.get("anomalies", []),
-        "recall_score": "100.0%",
-        "precision_score": "100.0%"
+        "ground_truth_anomalies": gt_anomalies,
+        "recall_score": f"{recall}%",
+        "precision_score": f"{precision}%"
     }
 

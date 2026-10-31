@@ -26,6 +26,7 @@ def initialize_sla_clock(
         "target_resolution_time": target_resol_dt.isoformat(),
         "actual_resolution_time": None,
         "clock_status": "RUNNING",
+        "paused_at": None,
         "paused_duration_minutes": 0,
         "is_response_breached": False,
         "is_resolution_breached": False
@@ -45,36 +46,43 @@ def record_first_response(
 
 def pause_clock(
     sla_data: Dict[str, Any],
-    complaint_status: str
+    complaint_status: str,
+    pause_dt_iso: str = None
 ) -> Dict[str, Any]:
     """
-    Transitions SLA clock to PAUSED state.
+    Transitions SLA clock to PAUSED state and records pause timestamp.
     Enforces the invariant: Complaint must be in PENDING_CUSTOMER state.
     """
     if complaint_status != "PENDING_CUSTOMER":
         raise ValueError("Invalid State: SLA clock can only be PAUSED when complaint is PENDING_CUSTOMER.")
         
     sla_data["clock_status"] = "PAUSED"
+    sla_data["paused_at"] = pause_dt_iso or datetime.now(timezone.utc).isoformat()
     return sla_data
 
 def resume_clock(
     sla_data: Dict[str, Any],
-    pause_start_dt_iso: str,
-    resume_dt_iso: str
+    pause_start_dt_iso: str = None,
+    resume_dt_iso: str = None
 ) -> Dict[str, Any]:
     """
     Resumes SLA clock, calculates paused duration, and pushes out resolution deadline.
     """
-    p_start = datetime.fromisoformat(pause_start_dt_iso)
-    p_end = datetime.fromisoformat(resume_dt_iso)
+    now_iso = resume_dt_iso or datetime.now(timezone.utc).isoformat()
+    p_start_str = pause_start_dt_iso or sla_data.get("paused_at")
     
-    delta_minutes = max(0, int((p_end - p_start).total_seconds() / 60))
-    sla_data["paused_duration_minutes"] = sla_data.get("paused_duration_minutes", 0) + delta_minutes
-    
-    # Extend target resolution deadline by paused duration
-    curr_target_dt = datetime.fromisoformat(sla_data["target_resolution_time"])
-    extended_target_dt = curr_target_dt + timedelta(minutes=delta_minutes)
-    sla_data["target_resolution_time"] = extended_target_dt.isoformat()
+    if p_start_str:
+        p_start = datetime.fromisoformat(p_start_str)
+        p_end = datetime.fromisoformat(now_iso)
+        delta_minutes = max(0, int((p_end - p_start).total_seconds() / 60))
+        sla_data["paused_duration_minutes"] = (sla_data.get("paused_duration_minutes") or 0) + delta_minutes
+        
+        # Extend target resolution deadline by paused duration
+        curr_target_dt = datetime.fromisoformat(sla_data["target_resolution_time"])
+        extended_target_dt = curr_target_dt + timedelta(minutes=delta_minutes)
+        sla_data["target_resolution_time"] = extended_target_dt.isoformat()
+        
+    sla_data["paused_at"] = None
     sla_data["clock_status"] = "RUNNING"
     return sla_data
 

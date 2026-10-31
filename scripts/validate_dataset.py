@@ -80,7 +80,7 @@ class ValidationSuite:
         print(f"Validation Summary: {self.passed_checks}/{self.total_checks} Check Categories Passed")
         print(f"Injected Edge Cases Detected: {len(self.detected_anomalies)}/6 expected")
         print("=================================================================")
-        return len(self.detected_anomalies) == 6
+        return (self.passed_checks == self.total_checks) and (len(self.detected_anomalies) == 6)
 
     def check_primary_keys(self):
         print("\n--- 1. Primary Key Uniqueness ---")
@@ -119,12 +119,17 @@ class ValidationSuite:
         cat_ids = {c["category_id"] for c in self.categories}
         ord_ids = {o["order_id"] for o in self.orders}
         cmp_ids = {c["complaint_id"] for c in self.complaints}
+        ord_to_cust = {o["order_id"]: o["customer_id"] for o in self.orders}
 
-        # Orders -> Customer, Product
+        # 1. Orders -> Customer, Product
         orphan_orders = [o for o in self.orders if o["customer_id"] not in cust_ids or o["product_id"] not in prod_ids]
         self.record_check("FK: orders -> customer, product", len(orphan_orders) == 0, f"({len(orphan_orders)} orphans)")
 
-        # Complaints -> Customer (detects ERR_ORPHAN_COMPLAINT)
+        # 2. Products -> Category
+        orphan_prods = [p for p in self.products if p["category_id"] not in cat_ids]
+        self.record_check("FK: products -> categories", len(orphan_prods) == 0, f"({len(orphan_prods)} orphans)")
+
+        # 3. Complaints -> Customer (detects ERR_ORPHAN_COMPLAINT)
         orphan_complaints = [c for c in self.complaints if c["customer_id"] not in cust_ids]
         if orphan_complaints:
             for c in orphan_complaints:
@@ -137,17 +142,47 @@ class ValidationSuite:
         else:
             self.record_check("FK: complaints -> customer", True, "(0 orphans)")
 
-        # Messages -> Complaint
+        # 4. Complaints -> Orders (optional) & Consistency Check (order's customer matches complaint's customer)
+        invalid_cmp_orders = [c for c in self.complaints if c["order_id"] is not None and c["order_id"] not in ord_ids]
+        self.record_check("FK: complaints -> orders", len(invalid_cmp_orders) == 0, f"({len(invalid_cmp_orders)} invalid orders)")
+
+        mismatched_cust_orders = [
+            c for c in self.complaints 
+            if c["order_id"] is not None and c["customer_id"] in cust_ids and ord_to_cust.get(c["order_id"]) != c["customer_id"]
+        ]
+        self.record_check("Relational Consistency: complaint.customer == order.customer", len(mismatched_cust_orders) == 0, f"({len(mismatched_cust_orders)} mismatches)")
+
+        # 5. Complaints -> Categories
+        orphan_cmp_cats = [c for c in self.complaints if c["category_id"] not in cat_ids]
+        self.record_check("FK: complaints -> categories", len(orphan_cmp_cats) == 0, f"({len(orphan_cmp_cats)} invalid categories)")
+
+        # 6. Complaints -> Parent Complaint (Self-referential FK)
+        orphan_parents = [c for c in self.complaints if c["parent_complaint_id"] is not None and c["parent_complaint_id"] not in cmp_ids]
+        self.record_check("FK: complaints -> parent_complaint (self-referential)", len(orphan_parents) == 0, f"({len(orphan_parents)} invalid parents)")
+
+        # 7. Messages -> Complaint
         orphan_msgs = [m for m in self.messages if m["complaint_id"] not in cmp_ids]
         self.record_check("FK: messages -> complaints", len(orphan_msgs) == 0, f"({len(orphan_msgs)} orphans)")
 
-        # SLA Clocks -> Complaint
+        # 8. Assignments -> Complaint
+        orphan_asns = [a for a in self.assignments if a["complaint_id"] not in cmp_ids]
+        self.record_check("FK: assignments -> complaints", len(orphan_asns) == 0, f"({len(orphan_asns)} orphans)")
+
+        # 9. SLA Clocks -> Complaint
         orphan_slas = [s for s in self.sla_clocks if s["complaint_id"] not in cmp_ids]
         self.record_check("FK: sla_clocks -> complaints", len(orphan_slas) == 0, f"({len(orphan_slas)} orphans)")
 
-        # Resolutions -> Complaint
+        # 10. Resolutions -> Complaint
         orphan_res = [r for r in self.resolutions if r["complaint_id"] not in cmp_ids]
         self.record_check("FK: resolutions -> complaints", len(orphan_res) == 0, f"({len(orphan_res)} orphans)")
+
+        # 11. Surveys -> Complaint
+        orphan_surveys = [s for s in self.surveys if s["complaint_id"] not in cmp_ids]
+        self.record_check("FK: surveys -> complaints", len(orphan_surveys) == 0, f"({len(orphan_surveys)} orphans)")
+
+        # 12. Complaint Events -> Complaint
+        orphan_events = [e for e in self.events if e["complaint_id"] not in cmp_ids]
+        self.record_check("FK: complaint_events -> complaints", len(orphan_events) == 0, f"({len(orphan_events)} orphans)")
 
     def check_allowed_enums(self):
         print("\n--- 3. Domain Enums & Allowed Values ---")
@@ -155,8 +190,12 @@ class ValidationSuite:
         order_statuses = {"PLACED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED"}
         severities = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
         priorities = {"P1_CRITICAL", "P2_HIGH", "P3_MEDIUM", "P4_LOW"}
-        complaint_statuses = {"OPEN", "ASSIGNED", "IN_INVESTIGATION", "PENDING_CUSTOMER", "RESOLVED", "CLOSED", "REOPENED"}
+        complaint_statuses = {"OPEN", "ASSIGNED", "IN_INVESTIGATION", "PENDING_CUSTOMER", "RESOLUTION_PENDING", "RESOLVED", "CLOSED", "REOPENED"}
         clock_statuses = {"RUNNING", "PAUSED", "RESUMED", "BREACHED", "COMPLETED"}
+        msg_senders = {"CUSTOMER", "AGENT", "SYSTEM", "APPROVER"}
+        msg_channels = {"EMAIL", "WEB_PORTAL", "PHONE", "CHAT", "MOBILE_APP", "PHONE_LOG", "PORTAL_NOTE", "CHAT_MSG", "SMS"}
+        res_types = {"FULL_REFUND", "PARTIAL_CREDIT", "REPLACEMENT", "TECHNICAL_FIX", "PROCESS_APOLOGY", "REJECTED_UNFOUNDED"}
+        appr_statuses = {"NOT_REQUIRED", "PENDING_REVIEW", "APPROVED", "REJECTED"}
 
         invalid_tiers = sum(1 for c in self.customers if c["customer_tier"] not in tiers)
         invalid_ostatus = sum(1 for o in self.orders if o["order_status"] not in order_statuses)
@@ -164,25 +203,39 @@ class ValidationSuite:
         invalid_prio = sum(1 for c in self.complaints if c["priority"] not in priorities)
         invalid_cstatus = sum(1 for c in self.complaints if c["status"] not in complaint_statuses)
         invalid_clock = sum(1 for s in self.sla_clocks if s["clock_status"] not in clock_statuses)
+        invalid_senders = sum(1 for m in self.messages if m["sender_type"] not in msg_senders)
+        invalid_mchannels = sum(1 for m in self.messages if m["channel"] not in msg_channels)
+        invalid_restypes = sum(1 for r in self.resolutions if r["resolution_type"] not in res_types)
+        invalid_appr = sum(1 for r in self.resolutions if r["approval_status"] not in appr_statuses)
+        invalid_surveys = sum(1 for s in self.surveys if not (1 <= s["csat_score"] <= 5 and 0 <= s["nps_score"] <= 10 and 1 <= s["effort_score"] <= 5))
 
-        is_valid = (invalid_tiers + invalid_ostatus + invalid_sev + invalid_prio + invalid_cstatus + invalid_clock) == 0
-        self.record_check("Enum Constraints across all tables", is_valid, "(100% valid enums)")
+        total_invalid = (invalid_tiers + invalid_ostatus + invalid_sev + invalid_prio + invalid_cstatus + 
+                         invalid_clock + invalid_senders + invalid_mchannels + invalid_restypes + invalid_appr + invalid_surveys)
+        self.record_check("Enum Constraints across all tables", total_invalid == 0, "(100% valid domain enums)")
 
     def check_date_orderings(self):
         print("\n--- 4. Chronological Consistency & Date Orderings ---")
-        # 1. Order date >= Customer created_at
         cust_map = {c["customer_id"]: datetime.fromisoformat(c["account_created_at"]) for c in self.customers}
         order_map = {o["order_id"]: datetime.fromisoformat(o["order_date"]) for o in self.orders}
         cmp_map = {c["complaint_id"]: datetime.fromisoformat(c["created_at"]) for c in self.complaints}
 
-        invalid_orders = 0
-        for o in self.orders:
-            if o["customer_id"] in cust_map:
-                if datetime.fromisoformat(o["order_date"]) < cust_map[o["customer_id"]]:
-                    invalid_orders += 1
+        # 1. Order date >= Customer created_at
+        invalid_orders = sum(1 for o in self.orders if o["customer_id"] in cust_map and datetime.fromisoformat(o["order_date"]) < cust_map[o["customer_id"]])
         self.record_check("order_date >= customer.account_created_at", invalid_orders == 0)
 
-        # 2. Resolution date >= Complaint created_at (detects ERR_TEMPORAL_INVERSION)
+        # 2. Delivery date >= Order date (if present)
+        invalid_deliveries = sum(1 for o in self.orders if o["delivery_date"] is not None and datetime.fromisoformat(o["delivery_date"]) < datetime.fromisoformat(o["order_date"]))
+        self.record_check("delivery_date >= order_date", invalid_deliveries == 0)
+
+        # 3. Complaint updated_at >= created_at
+        invalid_updates = sum(1 for c in self.complaints if datetime.fromisoformat(c["updated_at"]) < datetime.fromisoformat(c["created_at"]))
+        self.record_check("complaint.updated_at >= created_at", invalid_updates == 0)
+
+        # 4. Messages >= complaint created_at
+        invalid_msgs = sum(1 for m in self.messages if m["complaint_id"] in cmp_map and datetime.fromisoformat(m["timestamp"]) < cmp_map[m["complaint_id"]])
+        self.record_check("message.timestamp >= complaint.created_at", invalid_msgs == 0)
+
+        # 5. Resolution date >= Complaint created_at (detects ERR_TEMPORAL_INVERSION)
         temporal_inversions = []
         for r in self.resolutions:
             if r["complaint_id"] in cmp_map:
@@ -197,7 +250,7 @@ class ValidationSuite:
                     })
         self.record_check("resolved_at >= complaint.created_at", True, f"(Isolated {len(temporal_inversions)} deliberate temporal inversion anomaly)")
 
-        # 3. Survey submitted_at >= Resolution resolved_at (detects ERR_PREMATURE_SURVEY)
+        # 6. Survey submitted_at >= Resolution resolved_at (detects ERR_PREMATURE_SURVEY)
         res_map = {r["complaint_id"]: datetime.fromisoformat(r["resolved_at"]) for r in self.resolutions}
         premature_surveys = []
         for s in self.surveys:
@@ -219,8 +272,20 @@ class ValidationSuite:
         negative_pauses = sum(1 for s in self.sla_clocks if s["paused_duration_minutes"] < 0)
         negative_comp = sum(1 for r in self.resolutions if r["compensation_amount"] < 0)
         
-        is_valid = (negative_orders + negative_pauses + negative_comp) == 0
-        self.record_check("Non-negative amounts and durations", is_valid, "(All balances, amounts, durations >= 0)")
+        is_valid_neg = (negative_orders + negative_pauses + negative_comp) == 0
+        self.record_check("Non-negative amounts and durations", is_valid_neg, "(All balances, amounts, durations >= 0)")
+
+        # Order amount arithmetic reconciliation against product price and shipping
+        prod_map = {p["product_id"]: p["base_price"] for p in self.products}
+        reconciled_orders = 0
+        for o in self.orders:
+            base_p = prod_map.get(o["product_id"], 0.0)
+            if base_p > 0:
+                # amount = base_p * qty (+ 9.99 shipping if base_p < 100)
+                # verify order_amount >= base_p
+                if o["order_amount"] >= base_p:
+                    reconciled_orders += 1
+        self.record_check("Order Amount Arithmetic Reconciliation (>= Unit Price)", reconciled_orders == len(self.orders), f"({reconciled_orders}/{len(self.orders)} orders reconciled)")
 
     def check_lifecycle_and_business_rules(self):
         print("\n--- 6. Lifecycle Invariants & Business Rule Integrity ---")

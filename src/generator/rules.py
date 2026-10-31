@@ -205,7 +205,7 @@ def evaluate_priority(
             "target_response_hours": 4,
             "target_resolution_hours": 24
         }
-    if order_amount >= 500.00 or is_repeat_complaint or severity == "MEDIUM":
+    if order_amount >= 500.00 or is_repeat_complaint:
         return {
             "priority": "P3_MEDIUM",
             "matched_rule_id": "RUL-06",

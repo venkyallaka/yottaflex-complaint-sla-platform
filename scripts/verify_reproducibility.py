@@ -49,10 +49,12 @@ def main():
         
         # Compare
         print("\n[3/3] Comparing Row Counts and SHA-256 Checksums across all artifacts...")
-        print(f"{'Table / Artifact':<32} | {'Run 1 Count':<11} | {'Run 2 Count':<11} | {'Checksum Match':<14}")
-        print("-" * 75)
+        print(f"{'Artifact':<40} | {'Run 1 Count':<11} | {'Run 2 Count':<11} | {'Checksum Match':<14}")
+        print("-" * 85)
         
         all_matched = True
+        
+        # 1. Compare all 12 CSV tables
         for table, count1 in manifest1["table_counts"].items():
             count2 = manifest2["table_counts"].get(table, 0)
             csv_file1 = os.path.join(temp_dir_1, "csv", f"{table}.csv")
@@ -65,7 +67,37 @@ def main():
             if not match:
                 all_matched = False
             status = "IDENTICAL [PASS]" if match else "MISMATCH [FAIL]"
-            print(f"{table:<32} | {count1:<11} | {count2:<11} | {status:<14}")
+            print(f"{'csv/' + table + '.csv':<40} | {count1:<11} | {count2:<11} | {status:<14}")
+
+        # 2. Compare JSON table files
+        for table in manifest1["table_counts"].keys():
+            json_file1 = os.path.join(temp_dir_1, "json", f"{table}.json")
+            json_file2 = os.path.join(temp_dir_2, "json", f"{table}.json")
+            h1 = hash_file(json_file1)
+            h2 = hash_file(json_file2)
+            match = (h1 == h2)
+            if not match:
+                all_matched = False
+            status = "IDENTICAL [PASS]" if match else "MISMATCH [FAIL]"
+            print(f"{'json/' + table + '.json':<40} | {'-':<11} | {'-':<11} | {status:<14}")
+
+        # 3. Compare SQL Seed Data
+        sql1 = os.path.join(temp_dir_1, "sql", "seed_data.sql")
+        sql2 = os.path.join(temp_dir_2, "sql", "seed_data.sql")
+        h_sql1 = hash_file(sql1)
+        h_sql2 = hash_file(sql2)
+        sql_match = (h_sql1 == h_sql2)
+        if not sql_match:
+            all_matched = False
+        print(f"{'sql/seed_data.sql':<40} | {'-':<11} | {'-':<11} | {('IDENTICAL [PASS]' if sql_match else 'MISMATCH [FAIL]'):<14}")
+
+        # 4. Compare Ground Truth
+        gt1 = os.path.join(temp_dir_1, "ground_truth.json")
+        gt2 = os.path.join(temp_dir_2, "ground_truth.json")
+        gt_match = (hash_file(gt1) == hash_file(gt2))
+        if not gt_match:
+            all_matched = False
+        print(f"{'ground_truth.json':<40} | {'-':<11} | {'-':<11} | {('IDENTICAL [PASS]' if gt_match else 'MISMATCH [FAIL]'):<14}")
             
         print("=" * 75)
         if all_matched:

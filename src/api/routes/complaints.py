@@ -352,8 +352,22 @@ def append_message(
     if payload.sender_type == "CUSTOMER" and c.status == "PENDING_CUSTOMER":
         c.status = "IN_INVESTIGATION"
         if c.sla_clock and c.sla_clock.clock_status == "PAUSED":
-            c.sla_clock.clock_status = "RUNNING"
-            emit_event(db, complaint_id, "SLA_RESUMED", "SYSTEM_ADMIN", "SYS_AUTO_RESUME", {"reason": "Customer responded"})
+            clock_dict = {
+                "paused_at": c.sla_clock.paused_at,
+                "paused_duration_minutes": c.sla_clock.paused_duration_minutes,
+                "target_resolution_time": c.sla_clock.target_resolution_time,
+                "clock_status": c.sla_clock.clock_status
+            }
+            updated_clock = resume_clock(clock_dict, resume_dt_iso=now_iso)
+            c.sla_clock.clock_status = updated_clock["clock_status"]
+            c.sla_clock.paused_at = None
+            c.sla_clock.paused_duration_minutes = updated_clock["paused_duration_minutes"]
+            c.sla_clock.target_resolution_time = updated_clock["target_resolution_time"]
+            emit_event(db, complaint_id, "SLA_RESUMED", "SYSTEM_ADMIN", "SYS_AUTO_RESUME", {
+                "reason": "Customer responded",
+                "paused_duration_minutes": c.sla_clock.paused_duration_minutes,
+                "new_target_resolution_time": c.sla_clock.target_resolution_time
+            })
 
     c.updated_at = now_iso
     db.commit()
@@ -375,16 +389,25 @@ def pause_sla(
     if not c or not c.sla_clock:
         raise HTTPException(status_code=404, detail="Complaint or SLA clock not found.")
         
+    now_iso = datetime.now(timezone.utc).isoformat()
     c.status = "PENDING_CUSTOMER"
-    c.sla_clock.clock_status = "PAUSED"
-    c.updated_at = datetime.now(timezone.utc).isoformat()
+    
+    clock_dict = {"clock_status": c.sla_clock.clock_status}
+    updated_clock = pause_clock(clock_dict, complaint_status="PENDING_CUSTOMER", pause_dt_iso=now_iso)
+    c.sla_clock.clock_status = updated_clock["clock_status"]
+    c.sla_clock.paused_at = updated_clock["paused_at"]
+    c.updated_at = now_iso
     db.commit()
     
     emit_event(
         db, complaint_id, "SLA_PAUSED", "OPERATIONS_ANALYST", "AGT-PAUSE",
-        {"reason": payload.reason}
+        {"reason": payload.reason, "paused_at": now_iso}
     )
-    return {"status": "PAUSED", "complaint_status": "PENDING_CUSTOMER"}
+    return {
+        "status": "PAUSED",
+        "complaint_status": "PENDING_CUSTOMER",
+        "paused_at": c.sla_clock.paused_at
+    }
 
 @router.post("/{complaint_id}/sla/resume")
 def resume_sla(
@@ -399,16 +422,37 @@ def resume_sla(
     if c.sla_clock.clock_status != "PAUSED":
         raise HTTPException(status_code=400, detail="SLA clock is not currently paused.")
         
+    now_iso = datetime.now(timezone.utc).isoformat()
     c.status = "IN_INVESTIGATION"
-    c.sla_clock.clock_status = "RUNNING"
-    c.updated_at = datetime.now(timezone.utc).isoformat()
+    
+    clock_dict = {
+        "paused_at": c.sla_clock.paused_at,
+        "paused_duration_minutes": c.sla_clock.paused_duration_minutes,
+        "target_resolution_time": c.sla_clock.target_resolution_time,
+        "clock_status": c.sla_clock.clock_status
+    }
+    updated_clock = resume_clock(clock_dict, resume_dt_iso=now_iso)
+    c.sla_clock.clock_status = updated_clock["clock_status"]
+    c.sla_clock.paused_at = None
+    c.sla_clock.paused_duration_minutes = updated_clock["paused_duration_minutes"]
+    c.sla_clock.target_resolution_time = updated_clock["target_resolution_time"]
+    c.updated_at = now_iso
     db.commit()
     
     emit_event(
         db, complaint_id, "SLA_RESUMED", "OPERATIONS_ANALYST", "AGT-RESUME",
-        {"new_status": "IN_INVESTIGATION"}
+        {
+            "new_status": "IN_INVESTIGATION",
+            "paused_duration_minutes": c.sla_clock.paused_duration_minutes,
+            "new_target_resolution_time": c.sla_clock.target_resolution_time
+        }
     )
-    return {"status": "RUNNING", "complaint_status": "IN_INVESTIGATION"}
+    return {
+        "status": "RUNNING",
+        "complaint_status": "IN_INVESTIGATION",
+        "paused_duration_minutes": c.sla_clock.paused_duration_minutes,
+        "new_target_resolution_time": c.sla_clock.target_resolution_time
+    }
 
 @router.post("/{complaint_id}/resolution")
 def propose_resolution(

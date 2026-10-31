@@ -3,7 +3,8 @@ Database connection, session management, and automated JSON seed loader.
 """
 import os
 import json
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 from src.database.models import (
     Base, Customer, Product, Category, PriorityRule, Order,
@@ -13,12 +14,22 @@ from src.database.models import (
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 DB_PATH = os.path.join(DATA_DIR, "yottaflex.db")
-DATABASE_URL = f"sqlite:///{DB_PATH}"
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
+
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    connect_args=connect_args
 )
+
+# Enable Foreign Key enforcement for SQLite
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if DATABASE_URL.startswith("sqlite"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

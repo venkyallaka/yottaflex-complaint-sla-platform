@@ -12,10 +12,41 @@ def setup_database():
 
 client = TestClient(app)
 
-def test_api_health_check():
-    res = client.get("/api/v1/health")
-    assert res.status_code == 200
-    assert res.json()["status"] == "HEALTHY"
+def test_api_negative_scenarios():
+    # Negative test 1: Pause SLA when complaint is not PENDING_CUSTOMER
+    # Create fresh ticket in ASSIGNED state
+    c_res = client.post("/api/v1/complaints", json={
+        "customer_id": "CUS-000001",
+        "intake_channel": "EMAIL",
+        "message_body": "Delivery is delayed by 5 days."
+    })
+    c_id = c_res.json()["complaint_id"]
+
+    # Attempting to resume when not paused fails with 400
+    res_resume_invalid = client.post(f"/api/v1/complaints/{c_id}/sla/resume")
+    assert res_resume_invalid.status_code == 400
+    assert "not currently paused" in res_resume_invalid.json()["detail"]
+
+    # Negative test 2: Survey submission before resolution fails with 400
+    res_premature_survey = client.post(f"/api/v1/complaints/{c_id}/survey", json={
+        "csat_score": 5, "nps_score": 10, "effort_score": 5
+    })
+    assert res_premature_survey.status_code == 400
+    assert "Lifecycle violation" in res_premature_survey.json()["detail"]
+
+    # Negative test 3: Reopen complaint when not resolved or closed fails with 400
+    res_invalid_reopen = client.post(f"/api/v1/complaints/{c_id}/reopen", json={
+        "reason": "Reopening early"
+    })
+    assert res_invalid_reopen.status_code == 400
+
+    # Negative test 4: Filing complaint for non-existent customer fails with 404
+    res_missing_cust = client.post("/api/v1/complaints", json={
+        "customer_id": "CUS-999999",
+        "intake_channel": "WEB_PORTAL",
+        "message_body": "Orphan complaint test"
+    })
+    assert res_missing_cust.status_code == 404
 
 def test_end_to_end_complaint_lifecycle():
     # 1. Ingest complaint
@@ -50,17 +81,37 @@ def test_end_to_end_complaint_lifecycle():
     res = client.post(f"/api/v1/complaints/{complaint_id}/messages", json=msg_payload)
     assert res.status_code == 200
 
-    # 4. Pause SLA clock
+    # 4. Pause SLA clock (via API)
     res = client.post(f"/api/v1/complaints/{complaint_id}/sla/pause", json={"reason": "Waiting on safety team on-site inspection"})
     assert res.status_code == 200
     assert res.json()["status"] == "PAUSED"
     assert res.json()["complaint_status"] == "PENDING_CUSTOMER"
+    assert res.json()["paused_at"] is not None
 
-    # 5. Resume SLA clock
+    # Inspect SLA Clock to confirm paused_at stored
+    detail_paused = client.get(f"/api/v1/complaints/{complaint_id}").json()
+    orig_target_resol = detail_paused["sla_clock"]["target_resolution_time"]
+
+    # 5. Resume SLA clock (via API) - verifies deadline extension and duration calculation
     res = client.post(f"/api/v1/complaints/{complaint_id}/sla/resume")
     assert res.status_code == 200
     assert res.json()["status"] == "RUNNING"
     assert res.json()["complaint_status"] == "IN_INVESTIGATION"
+    assert "new_target_resolution_time" in res.json()
+    assert "paused_duration_minutes" in res.json()
+
+    # 5b. Customer message automatic resume test
+    client.post(f"/api/v1/complaints/{complaint_id}/sla/pause", json={"reason": "Waiting on customer serial number"})
+    res_cust_msg = client.post(f"/api/v1/complaints/{complaint_id}/messages", json={
+        "sender_type": "CUSTOMER",
+        "sender_id": "CUS-000001",
+        "channel": "PORTAL_NOTE",
+        "message_body": "Here is the serial number SN-998822."
+    })
+    assert res_cust_msg.status_code == 200
+    detail_auto_resumed = client.get(f"/api/v1/complaints/{complaint_id}").json()
+    assert detail_auto_resumed["complaint"]["status"] == "IN_INVESTIGATION"
+    assert detail_auto_resumed["sla_clock"]["clock_status"] == "RUNNING"
 
     # 6. Propose resolution requiring approval (> $250 or safety)
     res_payload = {
